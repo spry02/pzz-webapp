@@ -1,7 +1,7 @@
 # Dokumentacja Bazy Danych
 
 ## Diagram ERD
-![Diagram ERD](erd-diagram.png)
+![Diagram ERD](./diagram_erd.png)
 
 ## Tabele w Bazie Danych
 
