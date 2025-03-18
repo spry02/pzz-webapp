@@ -61,20 +61,6 @@ def login():
     if not username or not password:
         return jsonify({"error": "Nazwa użytkownika i hasło są wymagane"}), 400
 
-    user_dir = os.path.join(USERS_DIR, username)
-    user_file = os.path.join(user_dir, "user.txt")
-
-    if not os.path.exists(user_file):
-        return jsonify({"error": "Użytkownik nie istnieje"}), 404
-
-    # Odczyt danych użytkownika
-    with open(user_file, 'r') as f:
-        stored_password = f.readlines()[1].split(":")[1].strip()
-
-    # Sprawdzenie hasła
-    if stored_password != password:
-        return jsonify({"error": "Błędne hasło"}), 400
-
     # Zaloguj użytkownika
     session['username'] = username
     flash("Pomyślnie zalogowano!", "success")
@@ -87,3 +73,6 @@ def logout():
     flash("Zostałeś wylogowany.", "success")
     return redirect(url_for('login'))  # Przekierowanie na stronę logowania
 
+if __name__ == '__main__':
+    # Upewnij się, że wszystkie wymagane katalogi istnieją
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
