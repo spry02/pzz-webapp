@@ -1,0 +1,4 @@
+flask
+dotenv
+bcrypt
+mysql.connector

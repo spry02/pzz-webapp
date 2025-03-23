@@ -14,6 +14,7 @@ class DatabaseConnection:
                 host=os.getenv('DB_HOST', 'localhost'),
                 database='Pracownia_Programowania_Zespolowego',
                 user=os.getenv('DB_USER', 'root'),
+                auth_plugin='mysql_native_password',
                 password=os.getenv('DB_PASSWORD', '')
             )
         except Error as e:
