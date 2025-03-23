@@ -25,7 +25,7 @@ CREATE TABLE Transakcja (
     cena DECIMAL(15, 2) NOT NULL,
     data_transakcji TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES Uzytkownik(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (instrument_id) REFERENCES InstrumentHandlowy(instrument_id) ON DELETE CASCADE
+    FOREIGN KEY (instrument_id) REFERENCES Instrument_Handlowy(instrument_id) ON DELETE CASCADE
 );
 
 CREATE TABLE Rola (
@@ -38,4 +38,4 @@ ALTER TABLE Uzytkownik ADD CONSTRAINT fk_rola FOREIGN KEY (rola_id) REFERENCES R
 
 INSERT INTO Rola (nazwa) VALUES ('administrator'), ('uzytkownik');
 
-INSERT INTO InstrumentHandlowy (nazwa, symbol) VALUES ('Akcje Testowe', 'TST'), ('Obligacje Demo', 'DEM');
+INSERT INTO Instrument_Handlowy (nazwa, symbol) VALUES ('Akcje Testowe', 'TST'), ('Obligacje Demo', 'DEM');
