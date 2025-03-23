@@ -27,10 +27,17 @@ db = DatabaseConnection()
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'username' not in session:
+        if 'user_id' not in session:  # ✅ Poprawione (było 'username')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
+
+# Wpuszczenie tylko zalogowanego użytkownika
+@app.route('/')
+@login_required
+def index():
+    return render_template('index.html')
+
 
 
 # Rejestracja
@@ -66,19 +73,19 @@ def login():
             session['email'] = user['email']
             session['rola'] = user['rola_nazwa']
             flash("Pomyślnie zalogowano!", "success")
-            return redirect(url_for('index'))
+            return jsonify({'success': True, 'redirect': url_for('index')})
         else:
-            flash("Nieprawidłowy email lub hasło.", "error")
-            return redirect(url_for('login'))
-
+            return jsonify({'error': 'Nieprawidłowy email lub hasło'}), 401
     return render_template('login.html')
 
 # Wylogowanie
 @app.route('/logout')
 def logout():
-    session.pop('username', None)
+    session.clear() 
     flash("Zostałeś wylogowany.", "success")
-    return redirect(url_for('login'))  # Przekierowanie na stronę logowania
+    return redirect(url_for('login'))
+
+
 
 if __name__ == '__main__':
     # Upewnij się, że wszystkie wymagane katalogi istnieją
