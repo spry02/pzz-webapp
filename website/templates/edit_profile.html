@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edytuj profil</title>
+
+    <!-- Importowanie bibliotek -->   
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+<body>
+    <div class="header animate__animated animate__fadeInDown">
+        <i class="fa-solid fa-chart-line"></i> Demonstracyjna Giełda
+    </div>
+    <!-- Kontener formularza logowania -->
+    <div class="container animate__animated animate__fadeIn" style="margin-top: 50px; max-width: 800px;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category}}">
+                        {% if category == 'success' %}
+                            <i class="fas fa-check-circle"></i>
+                        {% elif category == 'warning' %}
+                            <i class="fas fa-exclamation-triangle"></i>
+                        {% elif category == 'danger' %}
+                            <i class="fas fa-exclamation-circle"></i>
+                        {% elif category == 'info' %}
+                            <i class="fas fa-info-circle"></i>
+                        {% endif %}
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        <div style="max-width: 400px; margin-left: auto; text-align: right;">
+            <button class="btn btn-danger" style="margin-bottom: 20px;" onclick="handleUserDelete(event)"><i class="fas fa-user-alt-slash"></i> Usuń konto</button>
+            <h2 class="mb-4 text-center" style="text-align: left;"><i class="fas fa-sign-in-alt"></i> Edycja profilu - {{username}}</h2>
+            <form id="usernameEditForm" action="{{ url_for('edit_profile') }}" method="post" onsubmit="handleEditUsername(event)">
+                <!-- Pole nazwy użytkownika, hasło i rejestracja -->
+                <div class="mb-3" style="text-align: left;">
+                    <label for="username" class="form-label"><i class="fas fa-user"></i> Zmień nazwę użytkownika</label>
+                    <input type="text" class="form-control" id="username" name="username" required placeholder="{{username}}">
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-sign-in-alt"></i> Potwierdź zmianę nazwy
+                </button>
+            </form>
+            <br>
+            <form id="passwordEditForm" action="{{ url_for('edit_profile') }}" method="post" onsubmit="handleEditPassword(event)">
+                <div class="mb-3" style="text-align: left;">
+                    <label for="password" class="form-label"><i class="fas fa-lock"></i> Aktualne hasło</label>
+                    <input type="password" class="form-control" id="passwordO" name="password" required placeholder="Wpisz swoje aktualne hasło">
+                    
+                    <label for="password" class="form-label"><i class="fas fa-lock"></i> Nowe hasło</label>
+                    <input type="password" class="form-control" id="passwordN" name="password" required placeholder="Wpisz nowe hasło">
+                    
+                    <label for="password" class="form-label"><i class="fas fa-lock"></i> Powtórz nowe hasło</label>
+                    <input type="password" class="form-control" id="passwordN2" name="password" required placeholder="Powtórz nowe hasło">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-sign-in-alt"></i> Zmień hasło
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="confirmator" style="max-width: 400px; min-width: 400px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: whitesmoke; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); display: none;">
+        <div id="title" style="height: fit-content; padding: 5px; background-color: lightslategray; font-weight: 800; font-size: medium;"><p style="margin: 0">Czy na pewno chcesz usunąć konto?</p></div>
+        <div id="content" style="padding: 10px; text-align: center;">
+            <p style="margin: 5px">Ta operacja jest permanentna i nieodwracalna!</p>
+            <button id="yes" style="background-color: red; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;" onclick="handleUserDelete(event, true)">Tak</button>
+            <button id="no" style="background-color: green; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;" onclick="handleUserDelete(event, false)">Nie</button>
+        </div>
+    </div>
+
+    <script>
+        
+        document.getElementById('passwordN').addEventListener('input', function() {
+            checkPassword();
+        });
+        document.getElementById('passwordN2').addEventListener('input', function() {
+            checkPassword();
+        });
+        function checkPassword() {
+            if (document.getElementById('passwordN').value != document.getElementById('passwordN2').value) {
+                document.getElementById('passwordN2').style = 'border-color: red';
+            } else {
+                document.getElementById('passwordN2').style = 'border-color: #ced4da';
+            }
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
+    <script>
+        AOS.init({
+            duration: 1000,
+            once: true, 
+        });
+        
+        function handleEditUsername(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const typ = 'usernameEdit';
+
+            fetch('/edit_profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ username, typ }) 
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect;
+                } else {
+                    window.location.reload();
+                }
+            })
+            .catch(error => console.error('Błąd:', error));
+        }
+
+        function handleEditPassword(event) {
+            event.preventDefault();
+            const passwordOld = document.getElementById('passwordO').value;
+            const passwordNew = document.getElementById('passwordN').value;
+            const passwordNew2 = document.getElementById('passwordN2').value;
+            const typ = 'passwordEdit';
+
+            if (passwordNew != passwordNew2) {
+                alert('Nowe hasła nie są takie same!');
+                return;
+            } else {
+                fetch('/edit_profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ passwordOld, passwordNew, typ }) 
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = data.redirect;
+                    } else {
+                        window.location.reload();
+                    }
+                })
+                .catch(error => console.error('Błąd:', error));
+            }
+
+
+        }
+
+        function handleUserDelete(event, confirmation=null) {
+            event.preventDefault();
+            const typ = 'userDelete';
+            const buttons = document.getElementsByTagName('button');
+            const inputs = document.getElementsByTagName('input');
+
+            if (confirmation == null) {
+                for (let i = 0; i < buttons.length-2; i++) {
+                    buttons[i].disabled = true;
+                }
+                
+                for (let i = 0; i < inputs.length; i++) {
+                    inputs[i].disabled = true;
+                }
+                const confirmator = document.getElementById('confirmator');
+                confirmator.style.display = 'block';
+                return;
+
+            } else if (confirmation == false) {
+                for (let i = 0; i < buttons.length-2; i++) {
+                    buttons[i].disabled = false;
+                }
+                
+                for (let i = 0; i < inputs.length; i++) {
+                    inputs[i].disabled = false;
+                }
+                const confirmator = document.getElementById('confirmator');
+                confirmator.style.display = 'none';
+                return;
+
+            } else if (confirmation == true) {
+                for (let i = 0; i < buttons.length-2; i++) {
+                    buttons[i].disabled = false;
+                }
+                
+                for (let i = 0; i < inputs.length; i++) {
+                    inputs[i].disabled = false;
+                }
+                const confirmator = document.getElementById('confirmator');
+                confirmator.style.display = 'none';
+
+                fetch('/edit_profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ typ }) 
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = data.redirect;
+                    } else {
+                        window.location.reload();
+                    }
+                })
+                .catch(error => console.error('Błąd:', error));
+            }
+
+        }
+        
+    </script>
+    
+</body>
+</html>

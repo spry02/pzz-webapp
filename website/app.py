@@ -38,7 +38,40 @@ def login_required(f):
 def index():
     return render_template('index.html')
 
-
+@app.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    app.logger.debug(f"Edytuj profil ścieżka wywołana metodą: {request.method}")
+    if request.method=='POST' and 'typ' in request.form:
+        typ = request.form.get('typ')
+        if typ == 'usernameEdit':
+            email = request.form.get('username')
+            if db.update_user_email(session['email'], email):
+                session['email'] = email
+                flash("Nickname został zmieniony pomyślnie!", "success")
+                return jsonify({'success': True, 'redirect': url_for('edit_profile')})
+            else:
+                flash("Podany adres email jest już zajęty.", "danger")
+                return jsonify({'error': "Błąd podczas zmiany adresu email."}), 405
+            
+        elif typ == 'passwordEdit':
+            passwordOld = request.form.get('passwordOld')
+            passwordNew = request.form.get('passwordNew')
+            if db.update_user_password(session['email'], passwordOld, passwordNew):
+                flash("Hasło zostało zmienione pomyślnie!", "success")
+                return redirect(url_for('edit_profile'))
+            else:
+                flash("Podane hasło jest niepoprawne.", "danger")
+                return jsonify({'error': "Błąd podczas zmiany hasła."}), 406
+            
+        elif typ == 'userDelete':
+            if db.delete_user(session['email']):
+                flash("Konto zostało usunięte pomyślnie!", "success")
+                return jsonify({'success': True, 'redirect': url_for('logout')})
+            else:
+                flash("Błąd podczas usuwania konta.", "danger")
+                return jsonify({'error': "Błąd podczas usuwania konta."}), 407
+    return render_template('edit_profile.html', username=session['email'])
 
 # Rejestracja
 @app.route('/register', methods=['GET', 'POST'])
@@ -53,10 +86,10 @@ def register():
 
         if db.create_user(email, password):
             flash("Konto zostało utworzone pomyślnie!", "success")
-            return redirect(url_for('login'))
+            return jsonify({'success': True, 'redirect': url_for('login')})
         else:
-            flash("Błąd podczas tworzenia konta.", "error")
-            return redirect(url_for('register'))
+            flash(f"Użytkownik o nazwie {email} już istnieje", "danger")
+            return jsonify({"error": "Błąd podczas tworzenia konta."}), 400
 
     return render_template('register.html')
 
@@ -73,8 +106,9 @@ def login():
             session['email'] = user['email']
             session['rola'] = user['rola_nazwa']
             flash("Pomyślnie zalogowano!", "success")
-            return jsonify({'success': True, 'redirect': url_for('index')})
+            return jsonify({'success': True, 'redirect': url_for('edit_profile')})
         else:
+            flash("Nieprawidłowy email lub hasło", "danger")
             return jsonify({'error': 'Nieprawidłowy email lub hasło'}), 401
     return render_template('login.html')
 
@@ -88,5 +122,4 @@ def logout():
 
 
 if __name__ == '__main__':
-    # Upewnij się, że wszystkie wymagane katalogi istnieją
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)

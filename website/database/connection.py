@@ -64,3 +64,39 @@ class DatabaseConnection:
             return None
         finally:
             cursor.close()
+
+    def update_user_email(self, old_email, new_email):
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("UPDATE Uzytkownik SET email = %s WHERE email = %s", (new_email, old_email))
+            self.connection.commit()
+            return True
+        except Error as e:
+            print(f"Error updating user email: {e}")
+
+    def update_user_password(self, email, old_password, new_password):
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT haslo_hash FROM Uzytkownik WHERE email = %s", (email,))
+            user = cursor.fetchone()
+            if not user or not bcrypt.checkpw(old_password.encode('utf-8'), user[0].encode('utf-8')):
+                return False
+            
+            hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+            cursor.execute("UPDATE Uzytkownik SET haslo_hash = %s WHERE email = %s", (hashed, email))
+            self.connection.commit()
+            return True
+        except Error as e:
+            print(f"Error updating user password: {e}")
+    
+    def delete_user(self, email):
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("DELETE FROM Uzytkownik WHERE email = %s", (email,))
+            self.connection.commit()
+            return True
+        except Error as e:
+            print(f"Error deleting user: {e}")
+            return False
+        finally:
+            cursor.close()

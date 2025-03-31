@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="confimator" style="max-width: 400px; min-width: 400px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: whitesmoke; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); display: block;">
+        <div id="title" style="height: 20px; padding: 5px; background-color: lightslategray; font-weight: 800;"><p style="margin: 0">Czy na pewno chcesz usunąć konto?</p></div>
+        <div id="content" style="padding: 10px; text-align: center;">
+            <p style="margin: 5px">Ta operacja jest permanentna i nieodwracalna!</p>
+            <button id="yes" style="background-color: red; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;" onclick="handleUserDelete(true)">Tak</button>
+            <button id="no" style="background-color: green; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;" onclick="handleUserDelete(false)">Nie</button>
+        </div>
+    </div>
+</body>
+</html>

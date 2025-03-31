@@ -18,7 +18,25 @@
         <i class="fa-solid fa-chart-line"></i> Demonstracyjna Giełda
     </div>
     <!-- Rejestracja użytkownika -->
-    <div class="container animate__animated animate__fadeIn" data-aos="fade-up">
+    <div class="container animate__animated animate__fadeIn" style="margin-top: 50px; max-width: 480px; min-width: 480px;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category}}">
+                        {% if category == 'success' %}
+                            <i class="fas fa-check-circle"></i>
+                        {% elif category == 'warning' %}
+                            <i class="fas fa-exclamation-triangle"></i>
+                        {% elif category == 'danger' %}
+                            <i class="fas fa-exclamation-circle"></i>
+                        {% elif category == 'info' %}
+                            <i class="fas fa-info-circle"></i>
+                        {% endif %}
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
         <h2 class="mb-4 text-center"><i class="fas fa-user-plus"></i> Rejestracja</h2>
         <form id="registerForm" action="{{ url_for('register') }}" method="post" onsubmit="handleRegister(event)">
             <div class="mb-3">
@@ -68,23 +86,18 @@
 
             fetch('/register', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({ username, password })
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ username, password }) 
             })
-            .then(response => {
-                if (response.redirected) {
-                    window.location.href = response.url;
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect;
                 } else {
-                    return response.json().then(data => {
-                        if (data.error) {
-                            alert(data.error);
-                        }
-                    });
+                    window.location.reload();
                 }
             })
-            .catch(error => console.error('Error:', error));
+            .catch(error => console.error('Błąd:', error));
         }
     </script>
 </body>
