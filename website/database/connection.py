@@ -3,6 +3,7 @@ from mysql.connector import Error
 import bcrypt
 import os
 from dotenv import load_dotenv
+from decimal import Decimal
 
 load_dotenv()
 
@@ -98,5 +99,51 @@ class DatabaseConnection:
         except Error as e:
             print(f"Error deleting user: {e}")
             return False
+        finally:
+            cursor.close()
+            
+    def get_instruments(self):
+        try:
+            cursor = self.connection.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM Instrument_Handlowy")
+            instruments = cursor.fetchall()
+            return instruments
+        except Error as e:
+            print(f"Error fetching instruments: {e}")
+            return []
+        finally:
+            cursor.close()
+            
+    def create_transaction(self, user_id, instrument_id, transaction_type, amount, price):
+        try:
+            cursor = self.connection.cursor()
+            sql = """INSERT INTO Transakcja (user_id, instrument_id, typ_transakcji, ilosc, cena) 
+                     VALUES (%s, %s, %s, %s, %s)"""
+            values = (user_id, instrument_id, transaction_type, Decimal(amount), Decimal(price))
+            
+            cursor.execute(sql, values)
+            self.connection.commit()
+            return cursor.lastrowid
+        except Error as e:
+            print(f"Error creating transaction: {e}")
+            return None
+        finally:
+            cursor.close()
+            
+    def get_user_transactions(self, user_id):
+        try:
+            cursor = self.connection.cursor(dictionary=True)
+            cursor.execute("""
+                SELECT t.*, i.nazwa as instrument_nazwa, i.symbol 
+                FROM Transakcja t
+                JOIN Instrument_Handlowy i ON t.instrument_id = i.instrument_id
+                WHERE t.user_id = %s
+                ORDER BY t.data_transakcji DESC
+            """, (user_id,))
+            transactions = cursor.fetchall()
+            return transactions
+        except Error as e:
+            print(f"Error fetching user transactions: {e}")
+            return []
         finally:
             cursor.close()
