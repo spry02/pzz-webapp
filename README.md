@@ -19,7 +19,6 @@ Demonstracyjna Giełda to aplikacja webowa pozwalająca na symulację działania
 - **Baza danych**: MySQL
 - **Biblioteki UI**: Bootstrap 5, Font Awesome
 - **Wizualizacja danych**: Chart.js
-- **Animacje**: Animate.css
 
 ## 🚀 Instalacja i uruchomienie
 1. Sklonuj repozytorium
