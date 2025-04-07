@@ -38,6 +38,27 @@ def login_required(f):
 def index():
     return render_template('index.html')
 
+# Dashboard z wykresami instrumentów handlowych
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    # Pobierz listę instrumentów handlowych z bazy danych
+    instruments = get_instruments()
+    return render_template('dashboard.html', instruments=instruments)
+
+# Funkcja do pobierania instrumentów handlowych
+def get_instruments():
+    try:
+        cursor = db.connection.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM Instrument_Handlowy")
+        instruments = cursor.fetchall()
+        return instruments
+    except Exception as e:
+        print(f"Error fetching instruments: {e}")
+        return []
+    finally:
+        cursor.close()
+
 @app.route('/edit_profile', methods=['GET', 'POST'])
 @login_required
 def edit_profile():
@@ -106,7 +127,7 @@ def login():
             session['email'] = user['email']
             session['rola'] = user['rola_nazwa']
             flash("Pomyślnie zalogowano!", "success")
-            return jsonify({'success': True, 'redirect': url_for('edit_profile')})
+            return jsonify({'success': True, 'redirect': url_for('dashboard')})  # Zmiana przekierowania na dashboard
         else:
             flash("Nieprawidłowy email lub hasło", "danger")
             return jsonify({'error': 'Nieprawidłowy email lub hasło'}), 401
