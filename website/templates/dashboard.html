@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Demonstracyjna Giełda</title>
+
+    <!-- Importowanie bibliotek -->   
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <!-- Chart.js dla wykresów -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="header animate__animated animate__fadeInDown">
+        <i class="fa-solid fa-chart-line"></i> Demonstracyjna Giełda
+    </div>
+    
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Nawigacja boczna -->
+            <div class="col-md-2 bg-dark text-light sidebar">
+                <div class="d-flex flex-column p-3">
+                    <h5 class="mb-3">
+                        <i class="fas fa-user-circle"></i> {{ session['email'] }}
+                    </h5>
+                    <hr>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="{{ url_for('dashboard') }}">
+                                <i class="fas fa-chart-line"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('edit_profile') }}">
+                                <i class="fas fa-user-edit"></i> Edytuj profil
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logout') }}">
+                                <i class="fas fa-sign-out-alt"></i> Wyloguj
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Zawartość główna -->
+            <div class="col-md-10 main-content">
+                <div class="container mt-4">
+                    <h2 class="mb-4"><i class="fas fa-chart-line"></i> Dashboard Instrumentów Handlowych</h2>
+                    
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category}}">
+                                    {% if category == 'success' %}
+                                        <i class="fas fa-check-circle"></i>
+                                    {% elif category == 'warning' %}
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                    {% elif category == 'danger' %}
+                                        <i class="fas fa-exclamation-circle"></i>
+                                    {% elif category == 'info' %}
+                                        <i class="fas fa-info-circle"></i>
+                                    {% endif %}
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <!-- Instrumenty handlowe -->
+                    <div class="row">
+                        <div class="col-md-12 mb-4">
+                            <div class="card">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">Notowania Instrumentów Handlowych</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Nazwa</th>
+                                                    <th>Symbol</th>
+                                                    <th>Aktualna cena</th>
+                                                    <th>Zmiana</th>
+                                                    <th>Akcje</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for instrument in instruments %}
+                                                <tr>
+                                                    <td>{{ instrument.nazwa }}</td>
+                                                    <td>{{ instrument.symbol }}</td>
+                                                    <td class="price-{{ instrument.symbol }}">--,-- zł</td>
+                                                    <td class="change-{{ instrument.symbol }}">--%</td>
+                                                    <td>
+                                                        <button class="btn btn-sm btn-success" onclick="showInstrumentChart('{{ instrument.symbol }}')">
+                                                            <i class="fas fa-chart-line"></i> Wykres
+                                                        </button>
+                                                        <button class="btn btn-sm btn-primary" onclick="showBuyModal('{{ instrument.symbol }}')">
+                                                            <i class="fas fa-shopping-cart"></i> Kup
+                                                        </button>
+                                                        <button class="btn btn-sm btn-danger" onclick="showSellModal('{{ instrument.symbol }}')">
+                                                            <i class="fas fa-cash-register"></i> Sprzedaj
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Wykres instrumentu -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0" id="chart-title">Wykres instrumentu</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="instrumentChart" style="width: 100%; height: 400px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal do kupna instrumentu -->
+    <div class="modal fade" id="buyModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Kup instrument</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="buyForm">
+                        <input type="hidden" id="buy-symbol" name="symbol">
+                        <div class="mb-3">
+                            <label for="buy-amount" class="form-label">Ilość:</label>
+                            <input type="number" class="form-control" id="buy-amount" name="amount" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Aktualna cena: <span id="buy-current-price">--,-- zł</span></label>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Całkowity koszt: <span id="buy-total-cost">--,-- zł</span></label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmBuy()">Kup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal do sprzedaży instrumentu -->
+    <div class="modal fade" id="sellModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Sprzedaj instrument</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="sellForm">
+                        <input type="hidden" id="sell-symbol" name="symbol">
+                        <div class="mb-3">
+                            <label for="sell-amount" class="form-label">Ilość:</label>
+                            <input type="number" class="form-control" id="sell-amount" name="amount" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Aktualna cena: <span id="sell-current-price">--,-- zł</span></label>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Całkowity zysk: <span id="sell-total-gain">--,-- zł</span></label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmSell()">Sprzedaj</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Dane przykładowe dla wykresów
+        const instrumentsData = {
+            'TST': {
+                prices: [100, 102, 98, 103, 105, 107, 104, 106, 110, 108, 112],
+                dates: ['2023-04-01', '2023-04-02', '2023-04-03', '2023-04-04', '2023-04-05', 
+                       '2023-04-06', '2023-04-07', '2023-04-08', '2023-04-09', '2023-04-10', '2023-04-11'],
+                currentPrice: 112.00,
+                change: 3.7
+            },
+            'DEM': {
+                prices: [250, 248, 252, 255, 251, 253, 258, 260, 257, 261, 265],
+                dates: ['2023-04-01', '2023-04-02', '2023-04-03', '2023-04-04', '2023-04-05', 
+                       '2023-04-06', '2023-04-07', '2023-04-08', '2023-04-09', '2023-04-10', '2023-04-11'],
+                currentPrice: 265.00,
+                change: 1.5
+            }
+        };
+        
+        // Zmienne globalne
+        let chart;
+        const buyModal = new bootstrap.Modal(document.getElementById('buyModal'));
+        const sellModal = new bootstrap.Modal(document.getElementById('sellModal'));
+        
+        // Inicjalizacja strony
+        document.addEventListener('DOMContentLoaded', function() {
+            // Aktualizuj ceny i zmiany dla instrumentów
+            updatePricesAndChanges();
+            
+            // Domyślnie pokaż pierwszy instrument
+            const defaultSymbol = Object.keys(instrumentsData)[0];
+            if (defaultSymbol) {
+                showInstrumentChart(defaultSymbol);
+            }
+            
+            // Rozpocznij symulację zmian cen
+            setInterval(simulatePriceChanges, 5000);
+        });
+        
+        // Aktualizacja cen i zmian dla instrumentów
+        function updatePricesAndChanges() {
+            for (const symbol in instrumentsData) {
+                const priceElements = document.querySelectorAll(`.price-${symbol}`);
+                const changeElements = document.querySelectorAll(`.change-${symbol}`);
+                const data = instrumentsData[symbol];
+                
+                priceElements.forEach(el => {
+                    el.textContent = `${data.currentPrice.toFixed(2)} zł`;
+                });
+                
+                changeElements.forEach(el => {
+                    el.textContent = `${data.change > 0 ? '+' : ''}${data.change.toFixed(2)}%`;
+                    el.classList.remove('text-success', 'text-danger');
+                    el.classList.add(data.change >= 0 ? 'text-success' : 'text-danger');
+                });
+            }
+        }
+        
+        // Symulacja zmian cen
+        function simulatePriceChanges() {
+            for (const symbol in instrumentsData) {
+                const data = instrumentsData[symbol];
+                
+                // Dodaj nową cenę z małą losową zmianą
+                const lastPrice = data.prices[data.prices.length - 1];
+                const change = (Math.random() - 0.48) * 5; // Większa szansa na wzrost
+                let newPrice = lastPrice + change;
+                newPrice = Math.max(0, newPrice); // Nie pozwól na ujemne ceny
+                
+                data.prices.push(newPrice);
+                data.prices.shift(); // Usuń najstarszą cenę
+                
+                // Aktualizuj daty
+                const lastDate = new Date(data.dates[data.dates.length - 1]);
+                lastDate.setDate(lastDate.getDate() + 1);
+                data.dates.push(lastDate.toISOString().split('T')[0]);
+                data.dates.shift(); // Usuń najstarszą datę
+                
+                // Aktualizuj aktualną cenę i zmianę
+                data.currentPrice = newPrice;
+                data.change = ((newPrice - data.prices[data.prices.length - 2]) / data.prices[data.prices.length - 2]) * 100;
+            }
+            
+            // Aktualizuj wygląd
+            updatePricesAndChanges();
+            
+            // Aktualizuj wykres, jeśli jest wyświetlony
+            const chartTitle = document.getElementById('chart-title').textContent;
+            const match = chartTitle.match(/Wykres instrumentu: (.*)/);
+            if (match && match[1]) {
+                const symbol = match[1];
+                updateChart(symbol);
+            }
+        }
+        
+        // Wyświetlenie wykresu instrumentu
+        function showInstrumentChart(symbol) {
+            document.getElementById('chart-title').textContent = `Wykres instrumentu: ${symbol}`;
+            
+            // Utwórz lub aktualizuj wykres
+            updateChart(symbol);
+        }
+        
+        // Aktualizacja wykresu
+        function updateChart(symbol) {
+            const ctx = document.getElementById('instrumentChart').getContext('2d');
+            const data = instrumentsData[symbol];
+            
+            // Zniszcz poprzedni wykres, jeśli istnieje
+            if (chart) {
+                chart.destroy();
+            }
+            
+            // Utwórz nowy wykres
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.dates,
+                    datasets: [{
+                        label: `Cena ${symbol}`,
+                        data: data.prices,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: 'Cena (zł)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Data'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Wyświetl modal kupna
+        function showBuyModal(symbol) {
+            const data = instrumentsData[symbol];
+            document.getElementById('buy-symbol').value = symbol;
+            document.getElementById('buy-current-price').textContent = `${data.currentPrice.toFixed(2)} zł`;
+            
+            // Ustaw obsługę zdarzeń dla kalkulacji kosztu
+            const amountInput = document.getElementById('buy-amount');
+            amountInput.value = 1; // Wartość domyślna
+            amountInput.oninput = function() {
+                const amount = parseInt(this.value) || 0;
+                const totalCost = amount * data.currentPrice;
+                document.getElementById('buy-total-cost').textContent = `${totalCost.toFixed(2)} zł`;
+            };
+            amountInput.oninput(); // Wywołaj raz na starcie
+            
+            buyModal.show();
+        }
+        
+        // Wyświetl modal sprzedaży
+        function showSellModal(symbol) {
+            const data = instrumentsData[symbol];
+            document.getElementById('sell-symbol').value = symbol;
+            document.getElementById('sell-current-price').textContent = `${data.currentPrice.toFixed(2)} zł`;
+            
+            // Ustaw obsługę zdarzeń dla kalkulacji zysku
+            const amountInput = document.getElementById('sell-amount');
+            amountInput.value = 1; // Wartość domyślna
+            amountInput.oninput = function() {
+                const amount = parseInt(this.value) || 0;
+                const totalGain = amount * data.currentPrice;
+                document.getElementById('sell-total-gain').textContent = `${totalGain.toFixed(2)} zł`;
+            };
+            amountInput.oninput(); // Wywołaj raz na starcie
+            
+            sellModal.show();
+        }
+        
+        // Potwierdzenie kupna
+        function confirmBuy() {
+            const symbol = document.getElementById('buy-symbol').value;
+            const amount = parseInt(document.getElementById('buy-amount').value);
+            
+            // Tutaj byłaby normalna obsługa API do kupna instrumentu
+            
+            // Dla demonstracji wyświetl alert
+            alert(`Zakupiono ${amount} jednostek instrumentu ${symbol}`);
+            buyModal.hide();
+        }
+        
+        // Potwierdzenie sprzedaży
+        function confirmSell() {
+            const symbol = document.getElementById('sell-symbol').value;
+            const amount = parseInt(document.getElementById('sell-amount').value);
+            
+            // Tutaj byłaby normalna obsługa API do sprzedaży instrumentu
+            
+            // Dla demonstracji wyświetl alert
+            alert(`Sprzedano ${amount} jednostek instrumentu ${symbol}`);
+            sellModal.hide();
+        }
+    </script>
+</body>
+</html>
