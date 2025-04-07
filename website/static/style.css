@@ -60,3 +60,37 @@ h2 {
 .text-center a:hover {
     text-decoration: underline;
 }
+
+/* Dashboard styles */
+.sidebar {
+    min-height: 100vh;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+}
+.sidebar .nav-link {
+    color: #adb5bd;
+    transition: all 0.3s ease;
+}
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+    color: #ffffff;
+    background-color: #495057;
+}
+.sidebar .nav-link i {
+    margin-right: 8px;
+}
+.main-content {
+    padding: 20px;
+}
+.card {
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.card-header {
+    font-weight: bold;
+}
+.text-success {
+    color: #28a745!important;
+}
+.text-danger {
+    color: #dc3545!important;
+}
