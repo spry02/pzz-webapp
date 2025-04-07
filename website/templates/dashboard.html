@@ -391,24 +391,68 @@
         function confirmBuy() {
             const symbol = document.getElementById('buy-symbol').value;
             const amount = parseInt(document.getElementById('buy-amount').value);
+            const price = parseFloat(document.getElementById('buy-current-price').textContent.replace(' zł', ''));
             
-            // Tutaj byłaby normalna obsługa API do kupna instrumentu
-            
-            // Dla demonstracji wyświetl alert
-            alert(`Zakupiono ${amount} jednostek instrumentu ${symbol}`);
-            buyModal.hide();
+            fetch('/api/transaction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    symbol: symbol,
+                    type: 'kupno',
+                    amount: amount,
+                    price: price
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Zakupiono ${amount} jednostek instrumentu ${symbol}`);
+                } else {
+                    alert(`Błąd: ${data.message}`);
+                }
+                buyModal.hide();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Wystąpił błąd podczas przetwarzania transakcji');
+                buyModal.hide();
+            });
         }
         
         // Potwierdzenie sprzedaży
         function confirmSell() {
             const symbol = document.getElementById('sell-symbol').value;
             const amount = parseInt(document.getElementById('sell-amount').value);
+            const price = parseFloat(document.getElementById('sell-current-price').textContent.replace(' zł', ''));
             
-            // Tutaj byłaby normalna obsługa API do sprzedaży instrumentu
-            
-            // Dla demonstracji wyświetl alert
-            alert(`Sprzedano ${amount} jednostek instrumentu ${symbol}`);
-            sellModal.hide();
+            fetch('/api/transaction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    symbol: symbol,
+                    type: 'sprzedaz',
+                    amount: amount,
+                    price: price
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Sprzedano ${amount} jednostek instrumentu ${symbol}`);
+                } else {
+                    alert(`Błąd: ${data.message}`);
+                }
+                sellModal.hide();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Wystąpił błąd podczas przetwarzania transakcji');
+                sellModal.hide();
+            });
         }
     </script>
 </body>

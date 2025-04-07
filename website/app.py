@@ -140,6 +140,42 @@ def logout():
     flash("Zostałeś wylogowany.", "success")
     return redirect(url_for('login'))
 
+@app.route('/api/transaction', methods=['POST'])
+@login_required
+def create_transaction():
+    data = request.json
+    if not data:
+        return jsonify({'success': False, 'message': 'Brak danych'}), 400
+    
+    try:
+        user_id = session['user_id']
+        symbol = data['symbol']
+        transaction_type = data['type']  # 'kupno' or 'sprzedaz'
+        amount = float(data['amount'])
+        price = float(data['price'])
+        
+        # Get instrument_id from symbol
+        cursor = db.connection.cursor()
+        cursor.execute("SELECT instrument_id FROM Instrument_Handlowy WHERE symbol = %s", (symbol,))
+        result = cursor.fetchone()
+        cursor.close()
+        
+        if not result:
+            return jsonify({'success': False, 'message': 'Nieznany symbol instrumentu'}), 404
+        
+        instrument_id = result[0]
+        
+        # Create the transaction
+        transaction_id = db.create_transaction(user_id, instrument_id, transaction_type, amount, price)
+        
+        if transaction_id:
+            return jsonify({'success': True, 'transaction_id': transaction_id})
+        else:
+            return jsonify({'success': False, 'message': 'Błąd podczas tworzenia transakcji'}), 500
+    
+    except Exception as e:
+        app.logger.error(f"Error creating transaction: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 if __name__ == '__main__':
