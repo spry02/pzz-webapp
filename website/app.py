@@ -36,28 +36,23 @@ def login_required(f):
 @app.route('/')
 @login_required
 def index():
-    return render_template('index.html')
+    return redirect(url_for('dashboard'))
 
 # Dashboard z wykresami instrumentów handlowych
 @app.route('/dashboard')
 @login_required
 def dashboard():
     # Pobierz listę instrumentów handlowych z bazy danych
-    instruments = get_instruments()
+    instruments = db.get_instruments()
     return render_template('dashboard.html', instruments=instruments)
 
-# Funkcja do pobierania instrumentów handlowych
-def get_instruments():
-    try:
-        cursor = db.connection.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM Instrument_Handlowy")
-        instruments = cursor.fetchall()
-        return instruments
-    except Exception as e:
-        print(f"Error fetching instruments: {e}")
-        return []
-    finally:
-        cursor.close()
+
+@app.before_request
+def redirect_to_http():
+    """Redirect HTTPS requests to HTTP"""
+    if request.headers.get('X-Forwarded-Proto') == 'https':
+        url = request.url.replace('https://', 'http://', 1)
+        return redirect(url, code=301)
 
 @app.route('/admin_panel', methods=['GET', 'POST'])
 @login_required
@@ -77,6 +72,21 @@ def admin_panel():
             else:
                 flash("Błąd podczas usuwania użytkownika.", "danger")
                 return jsonify({'error': "Błąd podczas usuwania użytkownika."}), 400
+            
+        elif action == 'role_user':
+            user_role = request.form.get('user_role')
+            if user_role == 'administrator':
+                user_role = 1
+            elif user_role == 'uzytkownik':
+                user_role = 2
+            
+            print(f"Użytkownik: {user_id}, Rola: {user_role}")
+            if db.update_user_role(user_id, user_role):
+                flash("Użytkownik został zaktualizowany pomyślnie!", "success")
+                return jsonify({'success': True})
+            else:
+                flash("Błąd podczas aktualizacji użytkownika.", "danger")
+                return jsonify({'error': "Błąd podczas aktualizacji użytkownika."}), 400
     
     users = db.get_all_users()
     transactions = db.get_all_transactions() 
@@ -147,6 +157,7 @@ def login():
         try:
             user = db.verify_user(email, password)
             if user:
+                # print(user)
                 session['user_id'] = user['user_id']
                 session['email'] = user['email']
                 session['rola'] = user['rola_nazwa']

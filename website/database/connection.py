@@ -15,9 +15,9 @@ class DatabaseConnection:
     def connect(self):
         try:
             self.connection = mysql.connector.connect(
-                host=os.getenv('DB_HOST', 'localhost'),
+                host=os.getenv('DB_HOST', ''),
                 database='Pracownia_Programowania_Zespolowego',
-                user=os.getenv('DB_USER', 'root'),
+                user=os.getenv('DB_USER', ''),
                 auth_plugin='mysql_native_password',
                 password=os.getenv('DB_PASSWORD', '')
             )
@@ -219,6 +219,25 @@ class DatabaseConnection:
             return True
         except Error as e:
             print(f"Error deleting user: {e}")
+            return False
+        finally:
+            if cursor:
+                cursor.close()
+
+    def update_user_role(self, user_id, role_id):
+        cursor = None
+        self.ensure_connection()
+        
+        if not self.connection:
+            return False
+
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("UPDATE Uzytkownik SET rola_id = %s WHERE user_id = %s", (role_id, user_id))
+            self.connection.commit()
+            return True
+        except Error as e:
+            print(f"Error updating user role: {e}")
             return False
         finally:
             if cursor:
