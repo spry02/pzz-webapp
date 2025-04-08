@@ -1,3 +1,4 @@
+import re
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session #type: ignore
 import os
 from database.connection import DatabaseConnection
@@ -132,11 +133,22 @@ def edit_profile():
 def register():
     app.logger.debug(f"Zarejestruj ścieżkę wywołaną metodą: {request.method}")
     if request.method == 'POST':
-        email = request.form.get('username')
+        email = request.form.get('email')
         password = request.form.get('password')
 
         if not email or not password:
             return jsonify({"error": "Email i hasło są wymagane"}), 400
+        
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            flash("Nieprawidłowy format adresu email", "danger")
+            return jsonify({"error": "Nieprawidłowy adres e-mail"}), 400
+        
+        if not (len(password) >= 6 and 
+                re.search(r"[A-Za-z]", password) and 
+                re.search(r"\d", password) and 
+                re.search(r"[!@#$%^&*]", password)):
+            flash("Hasło musi zawierać minimum 6 znaków, w tym literę, cyfrę i znak specjalny", "danger")
+            return jsonify({"error": "Hasło nie spełnia wymagań bezpieczeństwa"}), 400     
 
         if db.create_user(email, password):
             flash("Konto zostało utworzone pomyślnie!", "success")
