@@ -59,6 +59,29 @@ def get_instruments():
     finally:
         cursor.close()
 
+@app.route('/admin_panel', methods=['GET', 'POST'])
+@login_required
+def admin_panel():
+    if session['rola'] != 'administrator':
+        flash("Brak dostępu do panelu administratora", "danger")
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST' and 'action' in request.form:
+        action = request.form.get('action')
+        user_id = request.form.get('user_id')
+        
+        if action == 'delete_user':
+            if db.delete_user_by_id(user_id):
+                flash("Użytkownik został usunięty pomyślnie!", "success")
+                return jsonify({'success': True})
+            else:
+                flash("Błąd podczas usuwania użytkownika.", "danger")
+                return jsonify({'error': "Błąd podczas usuwania użytkownika."}), 400
+    
+    users = db.get_all_users()
+    transactions = db.get_all_transactions() 
+    return render_template('admin_panel.html', users=users, transactions=transactions)
+
 @app.route('/edit_profile', methods=['GET', 'POST'])
 @login_required
 def edit_profile():
@@ -121,16 +144,22 @@ def login():
         email = request.form.get('username')
         password = request.form.get('password')
 
-        user = db.verify_user(email, password)
-        if user:
-            session['user_id'] = user['user_id']
-            session['email'] = user['email']
-            session['rola'] = user['rola_nazwa']
-            flash("Pomyślnie zalogowano!", "success")
-            return jsonify({'success': True, 'redirect': url_for('dashboard')})  # Zmiana przekierowania na dashboard
-        else:
-            flash("Nieprawidłowy email lub hasło", "danger")
-            return jsonify({'error': 'Nieprawidłowy email lub hasło'}), 401
+        try:
+            user = db.verify_user(email, password)
+            if user:
+                session['user_id'] = user['user_id']
+                session['email'] = user['email']
+                session['rola'] = user['rola_nazwa']
+                flash("Pomyślnie zalogowano!", "success")
+                return jsonify({'success': True, 'redirect': url_for('dashboard')})
+            else:
+                flash("Nieprawidłowy email lub hasło", "danger")
+                return jsonify({'error': 'Nieprawidłowy email lub hasło'}), 401
+        except Exception as e:
+            app.logger.error(f"Database error: {str(e)}")
+            flash("Błąd połączenia z bazą danych", "danger")
+            return jsonify({'error': 'Błąd serwera'}), 500
+
     return render_template('login.html')
 
 # Wylogowanie

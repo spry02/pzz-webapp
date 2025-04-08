@@ -39,6 +39,13 @@
                                 <i class="fas fa-user-edit"></i> Edytuj profil
                             </a>
                         </li>
+                        {% if session['rola'] == 'administrator' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_panel') }}">
+                                <i class="fas fa-cogs"></i> Panel administracyjny
+                            </a>
+                        </li>
+                        {% endif %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('logout') }}">
                                 <i class="fas fa-sign-out-alt"></i> Wyloguj
