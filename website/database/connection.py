@@ -10,6 +10,9 @@ load_dotenv()
 class DatabaseConnection:
     def __init__(self):
         self.connection = None
+        self.connect()
+
+    def connect(self):
         try:
             self.connection = mysql.connector.connect(
                 host=os.getenv('DB_HOST', 'localhost'),
@@ -18,10 +21,24 @@ class DatabaseConnection:
                 auth_plugin='mysql_native_password',
                 password=os.getenv('DB_PASSWORD', '')
             )
+            return True
         except Error as e:
             print(f"Error connecting to database: {e}")
+            return False
+
+    def ensure_connection(self):
+        try:
+            self.connection.ping(reconnect=True, attempts=3, delay=5)
+        except Error:
+            self.connect()
 
     def create_user(self, email, password):
+        cursor = None
+        self.ensure_connection()
+
+        if not self.connection:
+            return False
+
         try:
             cursor = self.connection.cursor()
             
@@ -44,9 +61,17 @@ class DatabaseConnection:
             print(f"Error creating user: {e}")
             return False
         finally:
-            cursor.close()
+            if cursor:
+                cursor.close()
 
     def verify_user(self, email, password):
+        cursor = None
+        self.ensure_connection()  # Add connection check
+        
+        if not self.connection:
+            print("No database connection available")
+            return None
+
         try:
             cursor = self.connection.cursor(dictionary=True)
             cursor.execute("""
@@ -64,9 +89,15 @@ class DatabaseConnection:
             print(f"Error verifying user: {e}")
             return None
         finally:
-            cursor.close()
+            if cursor:
+                cursor.close()
 
     def update_user_email(self, old_email, new_email):
+        self.ensure_connection()
+        
+        if not self.connection:
+            return False
+
         try:
             cursor = self.connection.cursor()
             cursor.execute("UPDATE Uzytkownik SET email = %s WHERE email = %s", (new_email, old_email))
@@ -76,6 +107,11 @@ class DatabaseConnection:
             print(f"Error updating user email: {e}")
 
     def update_user_password(self, email, old_password, new_password):
+        self.ensure_connection()
+        
+        if not self.connection:
+            return False
+
         try:
             cursor = self.connection.cursor()
             cursor.execute("SELECT haslo_hash FROM Uzytkownik WHERE email = %s", (email,))
@@ -91,6 +127,11 @@ class DatabaseConnection:
             print(f"Error updating user password: {e}")
     
     def delete_user(self, email):
+        self.ensure_connection()
+        
+        if not self.connection:
+            return False
+
         try:
             cursor = self.connection.cursor()
             cursor.execute("DELETE FROM Uzytkownik WHERE email = %s", (email,))
@@ -103,6 +144,11 @@ class DatabaseConnection:
             cursor.close()
             
     def get_instruments(self):
+        self.ensure_connection()
+        
+        if not self.connection:
+            return []
+
         try:
             cursor = self.connection.cursor(dictionary=True)
             cursor.execute("SELECT * FROM Instrument_Handlowy")
@@ -115,6 +161,11 @@ class DatabaseConnection:
             cursor.close()
             
     def create_transaction(self, user_id, instrument_id, transaction_type, amount, price):
+        self.ensure_connection()
+        
+        if not self.connection:
+            return None
+
         try:
             cursor = self.connection.cursor()
             sql = """INSERT INTO Transakcja (user_id, instrument_id, typ_transakcji, ilosc, cena) 
@@ -130,20 +181,70 @@ class DatabaseConnection:
         finally:
             cursor.close()
             
-    def get_user_transactions(self, user_id):
+    def get_all_users(self):
+        cursor = None
+        self.ensure_connection()
+        
+        if not self.connection:
+            return []
+
         try:
             cursor = self.connection.cursor(dictionary=True)
             cursor.execute("""
-                SELECT t.*, i.nazwa as instrument_nazwa, i.symbol 
+                SELECT u.user_id, u.email, r.nazwa as rola_nazwa, u.data_utworzenia
+                FROM Uzytkownik u
+                JOIN Rola r ON u.rola_id = r.rola_id
+                ORDER BY u.data_utworzenia DESC
+            """)
+            users = cursor.fetchall()
+            return users
+        except Error as e:
+            print(f"Error fetching users: {e}")
+            return []
+        finally:
+            if cursor:
+                cursor.close()
+
+    def delete_user_by_id(self, user_id):
+        cursor = None
+        self.ensure_connection()
+        
+        if not self.connection:
+            return False
+
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("DELETE FROM Uzytkownik WHERE user_id = %s", (user_id,))
+            self.connection.commit()
+            return True
+        except Error as e:
+            print(f"Error deleting user: {e}")
+            return False
+        finally:
+            if cursor:
+                cursor.close()
+
+    def get_all_transactions(self):
+        cursor = None
+        self.ensure_connection()
+        
+        if not self.connection:
+            return []
+
+        try:
+            cursor = self.connection.cursor(dictionary=True)
+            cursor.execute("""
+                SELECT t.*, i.nazwa as instrument_nazwa, i.symbol, u.email as user_email
                 FROM Transakcja t
                 JOIN Instrument_Handlowy i ON t.instrument_id = i.instrument_id
-                WHERE t.user_id = %s
+                JOIN Uzytkownik u ON t.user_id = u.user_id
                 ORDER BY t.data_transakcji DESC
-            """, (user_id,))
+            """)
             transactions = cursor.fetchall()
             return transactions
         except Error as e:
-            print(f"Error fetching user transactions: {e}")
+            print(f"Error fetching transactions: {e}")
             return []
         finally:
-            cursor.close()
+            if cursor:
+                cursor.close()

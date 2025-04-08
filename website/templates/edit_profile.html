@@ -37,8 +37,11 @@
                 {% endfor %}
             {% endif %}
         {% endwith %}
-        <div style="max-width: 400px; margin-left: auto; text-align: right;">
-            <button class="btn btn-danger" style="margin-bottom: 20px;" onclick="handleUserDelete(event)"><i class="fas fa-user-alt-slash"></i> Usuń konto</button>
+        <div style="max-width: 400px; margin: 0 auto; text-align: center;">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary" style="margin-bottom: 20px;">
+                <i class="fas fa-home"></i> Strona główna
+            </a>
+            <button class="btn btn-danger" style="margin-bottom: 20px; margin-left: 115px;" onclick="handleUserDelete(event)"><i class="fas fa-user-alt-slash"></i> Usuń konto</button>
             <h2 class="mb-4 text-center" style="text-align: left;"><i class="fas fa-sign-in-alt"></i> Edycja profilu - {{username}}</h2>
             <form id="usernameEditForm" action="{{ url_for('edit_profile') }}" method="post" onsubmit="handleEditUsername(event)">
                 <!-- Pole nazwy użytkownika, hasło i rejestracja -->
