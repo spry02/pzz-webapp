@@ -86,13 +86,18 @@
                                         <tr id="user-{{ user.user_id }}">
                                             <td>{{ user.user_id }}</td>
                                             <td>{{ user.email }}</td>
-                                            <td>{{ user.rola_nazwa }}</td>
+                                            <td id="user-{{ user.rola_nazwa }} user-{{ user.user_id }}">{{ user.rola_nazwa }}</td>
                                             <td>{{ user.data_utworzenia.strftime('%d-%m-%Y %H:%M:%S') }}</td>
                                             <td>
-                                                {% if user.rola_nazwa != 'administrator' %}
-                                                <button class="btn btn-sm btn-danger" onclick="deleteUser('{{ user.user_id }}')">
-                                                    <i class="fas fa-trash"></i> Usuń
-                                                </button>
+                                                {% if user.email != session['email'] %}
+                                                    <button class="btn btn-sm btn-primary" onclick="roleUser('{{ user.user_id }}', '{{ user.rola_nazwa }}')">
+                                                        <i class="fas fa-trash"></i> Zmień rolę
+                                                    </button>
+                                                    {% if user.rola_nazwa != 'administrator' %}
+                                                    <button class="btn btn-sm btn-danger" onclick="deleteUser('{{ user.user_id }}')">
+                                                        <i class="fas fa-trash"></i> Usuń
+                                                    </button>
+                                                    {% endif %}
                                                 {% endif %}
                                             </td>
                                         </tr>
@@ -126,14 +131,46 @@
         </div>
     </div>
 
+    <div class="modal fade" id="roleConfirmModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Zmiana roli</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    Czy na pewno chcesz zmienić rolę tego użytkownika?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="button" class="btn btn-primary" id="confirmRole">Zmień</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let userToDelete = null;
+        let userToRole = null;
         const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        const roleModal = new bootstrap.Modal(document.getElementById('roleConfirmModal'));
         
         function deleteUser(userId) {
             userToDelete = userId;
             deleteModal.show();
+        }
+
+        function roleUser(userId, roleNam) {
+            userToRole = userId;
+            roleName = roleNam;
+            newRoleName = 'uzytkownik';
+            if (roleName == 'administrator') {
+                newRoleName = 'uzytkownik';
+            } else {
+                newRoleName = 'administrator';
+            }
+            roleModal.show();
         }
         
         document.getElementById('confirmDelete').addEventListener('click', function() {
@@ -159,6 +196,35 @@
             .catch(error => {
                 console.error('Error:', error);
                 alert('Wystąpił błąd podczas usuwania użytkownika');
+            });
+        });
+
+        document.getElementById('confirmRole').addEventListener('click', function() {
+            if (!userToRole) return;
+            
+            fetch('/admin_panel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action: 'role_user',
+                    user_id: userToRole,
+                    user_role: newRoleName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById(`user-${roleName} user-${userToRole}`).innerText = newRoleName;
+                    document.getElementById(`user-${userToRole}`).id = `user-${data.new_role} user-${userToRole}`;
+                    roleModal.hide();
+                    window.location.reload();
+                } else {
+                    alert('Błąd podczas edycji użytkownika');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Wystąpił błąd podczas zmiany roli użytkownika');
             });
         });
     </script>
