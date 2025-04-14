@@ -13,17 +13,148 @@
     
     <!-- Chart.js dla wykresów -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- ApexCharts dla lepszych wykresów -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    
+    <style>
+        /* Dodatkowe style aby poszerzyć widok */
+        .main-content {
+            width: 100%;
+            padding: 20px 30px;
+        }
+        
+        .sidebar {
+            min-width: 250px;
+            width: 250px;
+        }
+        
+        /* Szerszy kontener na większych ekranach */
+        @media (min-width: 1400px) {
+            .container-fluid.dashboard-container {
+                max-width: 1800px;
+                margin: 0 auto;
+            }
+        }
+        
+        /* Upiększenia do kart instrumentów */
+        .market-card {
+            transition: all 0.3s ease;
+            border-left: 5px solid transparent;
+        }
+        
+        .market-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+        }
+        
+        .market-card.bg-primary {
+            border-color: #004b9e;
+        }
+        
+        .market-card.bg-success {
+            border-color: #0a5d36;
+        }
+        
+        .market-card.bg-warning {
+            border-color: #b38600;
+        }
+        
+        .market-card.bg-info {
+            border-color: #0056b3;
+        }
+        
+        /* Style dla tabeli instrumentów */
+        .table-instruments {
+            font-size: 0.95rem;
+        }
+        
+        .table-instruments thead th {
+            position: sticky;
+            top: 0;
+            background-color: #f8f9fa;
+            z-index: 1;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        /* Animacje dla zmiany cen */
+        @keyframes highlight-green {
+            0% { background-color: rgba(40, 167, 69, 0.3); }
+            100% { background-color: transparent; }
+        }
+        
+        @keyframes highlight-red {
+            0% { background-color: rgba(220, 53, 69, 0.3); }
+            100% { background-color: transparent; }
+        }
+        
+        .price-up {
+            animation: highlight-green 2s ease;
+        }
+        
+        .price-down {
+            animation: highlight-red 2s ease;
+        }
+        
+        /* Stylizacja wykresu */
+        .chart-container {
+            height: 500px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 20px;
+        }
+        
+        /* Ulepszenia dla kart */
+        .card {
+            border: none;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .card-header {
+            border-bottom: none;
+            padding: 15px 20px;
+            font-weight: 600;
+        }
+        
+        /* Ładniejsze przyciski */
+        .btn-action {
+            border-radius: 50px;
+            padding: 8px 20px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* Badge dla zmian cen */
+        .price-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+    </style>
 </head>
-<body>
+<body class="dashboard-body">
     <div class="header animate__animated animate__fadeInDown">
         <i class="fa-solid fa-chart-line"></i> Demonstracyjna Giełda
     </div>
     
-    <div class="container-fluid">
+    <div class="container-fluid dashboard-container">
         <div class="row">
             <!-- Nawigacja boczna -->
-            <div class="col-md-2 bg-dark text-light sidebar">
-                <div class="d-flex flex-column p-3">
+            <div class="col-auto bg-dark text-light sidebar">
+                <div class="d-flex flex-column p-3 sticky-top">
                     <h5 class="mb-3">
                         <i class="fas fa-user-circle"></i> {{ session['email'] }}
                     </h5>
@@ -52,18 +183,32 @@
                             </a>
                         </li>
                     </ul>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="card bg-dark text-white border-secondary mb-3">
+                        <div class="card-body p-3">
+                            <h6 class="card-title"><i class="fas fa-wallet"></i> Twój portfel</h6>
+                            <h4>100,000.00 zł</h4>
+                            <div class="progress mt-2" style="height: 10px;">
+                                <div class="progress-bar bg-success" style="width: 75%"></div>
+                            </div>
+                            <div class="d-flex justify-content-between mt-2">
+                                <small>Dostępne</small>
+                                <small>75,000 zł</small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
             <!-- Zawartość główna -->
-            <div class="col-md-10 main-content">
-                <div class="container mt-4">
-                    <h2 class="mb-4"><i class="fas fa-chart-line"></i> Dashboard Instrumentów Handlowych</h2>
-                    
+            <div class="col main-content">
+                <div class="px-2 py-3">
                     {% with messages = get_flashed_messages(with_categories=true) %}
                         {% if messages %}
                             {% for category, message in messages %}
-                                <div class="alert alert-{{ category}}">
+                                <div class="alert alert-{{ category}} alert-dismissible fade show">
                                     {% if category == 'success' %}
                                         <i class="fas fa-check-circle"></i>
                                     {% elif category == 'warning' %}
@@ -74,68 +219,180 @@
                                         <i class="fas fa-info-circle"></i>
                                     {% endif %}
                                     {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                 </div>
                             {% endfor %}
                         {% endif %}
                     {% endwith %}
+
+                    <!-- Dashboard Header -->
+                    <div class="dashboard-header mb-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h2 class="mb-0"><i class="fas fa-chart-line"></i> Dashboard Rynku</h2>
+                                <p class="text-muted">Monitoruj instrumenty i przeprowadzaj transakcje</p>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <div class="btn-group">
+                                    <button class="btn btn-outline-primary btn-action" id="refresh-data">
+                                        <i class="fas fa-sync-alt"></i> Odśwież dane
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-action" id="toggle-view">
+                                        <i class="fas fa-th-large"></i> Zmień widok
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
-                    <!-- Instrumenty handlowe -->
-                    <div class="row">
-                        <div class="col-md-12 mb-4">
+                    <!-- Market Summary -->
+                    <div class="row mb-4">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="card market-card bg-primary text-white mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="fas fa-chart-line"></i> WIG20</h5>
+                                    <h3 class="market-value" id="wig20-value">--,-- pkt</h3>
+                                    <p class="market-change" id="wig20-change">--,-- %</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="card market-card bg-success text-white mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="fas fa-dollar-sign"></i> USD/PLN</h5>
+                                    <h3 class="market-value" id="usd-value">--,-- zł</h3>
+                                    <p class="market-change" id="usd-change">--,-- %</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="card market-card bg-warning text-white mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="fas fa-euro-sign"></i> EUR/PLN</h5>
+                                    <h3 class="market-value" id="eur-value">--,-- zł</h3>
+                                    <p class="market-change" id="eur-change">--,-- %</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="card market-card bg-info text-white mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="fab fa-btc"></i> Bitcoin</h5>
+                                    <h3 class="market-value" id="btc-value">--,-- $</h3>
+                                    <p class="market-change" id="btc-change">--,-- %</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Wykres główny i szczegóły instrumentu -->
+                    <div class="row mb-4">
+                        <div class="col-lg-8">
                             <div class="card">
-                                <div class="card-header bg-primary text-white">
-                                    <h5 class="mb-0">Notowania Instrumentów Handlowych</h5>
+                                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0" id="chart-title">Wykres instrumentu</h5>
+                                    <span class="badge bg-light text-dark">Świece 1D</span>
+                                </div>
+                                <div class="card-body chart-container">
+                                    <div id="instrumentChart" style="width: 100%; height: 400px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-dark text-white">
+                                    <h5 class="mb-0">Szczegóły instrumentu</h5>
                                 </div>
                                 <div class="card-body">
-                                    <div class="table-responsive">
-                                        <table class="table table-hover">
-                                            <thead>
-                                                <tr>
-                                                    <th>Nazwa</th>
-                                                    <th>Symbol</th>
-                                                    <th>Aktualna cena</th>
-                                                    <th>Zmiana</th>
-                                                    <th>Akcje</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for instrument in instruments %}
-                                                <tr>
-                                                    <td>{{ instrument.nazwa }}</td>
-                                                    <td>{{ instrument.symbol }}</td>
-                                                    <td class="price-{{ instrument.symbol }}">--,-- zł</td>
-                                                    <td class="change-{{ instrument.symbol }}">--%</td>
-                                                    <td>
-                                                        <button class="btn btn-sm btn-success" onclick="showInstrumentChart('{{ instrument.symbol }}')">
-                                                            <i class="fas fa-chart-line"></i> Wykres
-                                                        </button>
-                                                        <button class="btn btn-sm btn-primary" onclick="showBuyModal('{{ instrument.symbol }}')">
-                                                            <i class="fas fa-shopping-cart"></i> Kup
-                                                        </button>
-                                                        <button class="btn btn-sm btn-danger" onclick="showSellModal('{{ instrument.symbol }}')">
-                                                            <i class="fas fa-cash-register"></i> Sprzedaj
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
+                                    <div id="instrument-details">
+                                        <p class="text-center text-muted">Wybierz instrument aby zobaczyć szczegóły</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Wykres instrumentu -->
-                    <div class="row">
-                        <div class="col-md-12">
-                            <div class="card">
-                                <div class="card-header bg-info text-white">
-                                    <h5 class="mb-0" id="chart-title">Wykres instrumentu</h5>
-                                </div>
-                                <div class="card-body">
-                                    <canvas id="instrumentChart" style="width: 100%; height: 400px;"></canvas>
-                                </div>
+                    <!-- Instrumenty handlowe -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Notowania Instrumentów Handlowych</h5>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="live-update" checked>
+                                <label class="form-check-label text-white" for="live-update">Aktualizuj na żywo</label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle table-instruments">
+                                    <thead>
+                                        <tr>
+                                            <th>Nazwa</th>
+                                            <th>Symbol</th>
+                                            <th>Aktualna cena</th>
+                                            <th>Zmiana</th>
+                                            <th>Wolumen</th>
+                                            <th>Otwarcie</th>
+                                            <th>Min/Max</th>
+                                            <th class="text-center">Akcje</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for instrument in instruments %}
+                                        <tr>
+                                            <td><strong>{{ instrument.nazwa }}</strong></td>
+                                            <td><span class="badge bg-secondary">{{ instrument.symbol }}</span></td>
+                                            <td class="price-{{ instrument.symbol }} fw-bold">--,-- zł</td>
+                                            <td class="change-{{ instrument.symbol }}">--%</td>
+                                            <td class="volume-{{ instrument.symbol }}">---</td>
+                                            <td class="opening-{{ instrument.symbol }}">--,-- zł</td>
+                                            <td><small class="min-max-{{ instrument.symbol }}">--,-- / --,--</small></td>
+                                            <td class="text-center">
+                                                <div class="btn-group">
+                                                    <button class="btn btn-sm btn-outline-success" onclick="showInstrumentChart('{{ instrument.symbol }}')">
+                                                        <i class="fas fa-chart-line"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-primary" onclick="showBuyModal('{{ instrument.symbol }}')">
+                                                        <i class="fas fa-shopping-cart"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" onclick="showSellModal('{{ instrument.symbol }}')">
+                                                        <i class="fas fa-cash-register"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                        
+                                        <!-- Zewnętrzne instrumenty będą wstawiane dynamicznie przez JS -->
+                                        <tbody id="external-instruments">
+                                        </tbody>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Historia transakcji -->
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">Ostatnie transakcje</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Instrument</th>
+                                            <th>Typ</th>
+                                            <th>Ilość</th>
+                                            <th>Cena</th>
+                                            <th>Wartość</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="transaction-history">
+                                        <!-- Dane będą wstawiane dynamicznie przez JS -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -150,7 +407,7 @@
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">Kup instrument</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Zamknij"></button>
                 </div>
                 <div class="modal-body">
                     <form id="buyForm">
@@ -163,13 +420,18 @@
                             <label class="form-label">Aktualna cena: <span id="buy-current-price">--,-- zł</span></label>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Całkowity koszt: <span id="buy-total-cost">--,-- zł</span></label>
+                            <label class="form-label">Całkowity koszt: <span id="buy-total-cost" class="badge bg-primary">--,-- zł</span></label>
+                        </div>
+                        <div class="progress mb-3">
+                            <div class="progress-bar" role="progressbar" id="buy-progress" style="width: 0%"></div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-                    <button type="button" class="btn btn-primary" onclick="confirmBuy()">Kup</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmBuy()">
+                        <i class="fas fa-check-circle"></i> Kup
+                    </button>
                 </div>
             </div>
         </div>
@@ -181,7 +443,7 @@
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title">Sprzedaj instrument</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Zamknij"></button>
                 </div>
                 <div class="modal-body">
                     <form id="sellForm">
@@ -194,13 +456,18 @@
                             <label class="form-label">Aktualna cena: <span id="sell-current-price">--,-- zł</span></label>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Całkowity zysk: <span id="sell-total-gain">--,-- zł</span></label>
+                            <label class="form-label">Całkowity zysk: <span id="sell-total-gain" class="badge bg-success">--,-- zł</span></label>
+                        </div>
+                        <div class="progress mb-3">
+                            <div class="progress-bar bg-success" role="progressbar" id="sell-progress" style="width: 0%"></div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-                    <button type="button" class="btn btn-danger" onclick="confirmSell()">Sprzedaj</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmSell()">
+                        <i class="fas fa-check-circle"></i> Sprzedaj
+                    </button>
                 </div>
             </div>
         </div>
@@ -208,98 +475,187 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Dane przykładowe dla wykresów
-        const instrumentsData = {
-            'TST': {
-                prices: [100, 102, 98, 103, 105, 107, 104, 106, 110, 108, 112],
-                dates: ['2023-04-01', '2023-04-02', '2023-04-03', '2023-04-04', '2023-04-05', 
-                       '2023-04-06', '2023-04-07', '2023-04-08', '2023-04-09', '2023-04-10', '2023-04-11'],
-                currentPrice: 112.00,
-                change: 3.7
-            },
-            'DEM': {
-                prices: [250, 248, 252, 255, 251, 253, 258, 260, 257, 261, 265],
-                dates: ['2023-04-01', '2023-04-02', '2023-04-03', '2023-04-04', '2023-04-05', 
-                       '2023-04-06', '2023-04-07', '2023-04-08', '2023-04-09', '2023-04-10', '2023-04-11'],
-                currentPrice: 265.00,
-                change: 1.5
-            }
-        };
-        
         // Zmienne globalne
         let chart;
+        let apexChart;
         const buyModal = new bootstrap.Modal(document.getElementById('buyModal'));
         const sellModal = new bootstrap.Modal(document.getElementById('sellModal'));
+        let instrumentsData = {};
+        
+        // Dane przykładowe dla transakcji
+        const transactionHistory = [
+            {date: '2023-04-11 14:32', instrument: 'TST', type: 'kupno', amount: 10, price: 108.50, value: 1085.00},
+            {date: '2023-04-10 09:45', instrument: 'DEM', type: 'kupno', amount: 5, price: 252.00, value: 1260.00},
+            {date: '2023-04-08 11:20', instrument: 'TST', type: 'sprzedaz', amount: 5, price: 106.00, value: 530.00}
+        ];
         
         // Inicjalizacja strony
         document.addEventListener('DOMContentLoaded', function() {
-            // Aktualizuj ceny i zmiany dla instrumentów
-            updatePricesAndChanges();
+            // Pobierz zewnętrzne dane instrumentów
+            fetchExternalInstruments();
             
-            // Domyślnie pokaż pierwszy instrument
-            const defaultSymbol = Object.keys(instrumentsData)[0];
-            if (defaultSymbol) {
-                showInstrumentChart(defaultSymbol);
-            }
+            // Wyświetl historię transakcji
+            renderTransactionHistory();
             
-            // Rozpocznij symulację zmian cen
-            setInterval(simulatePriceChanges, 5000);
+            // Wypełnij dane wskaźników rynkowych
+            updateMarketIndicators();
+            
+            // Obsługa przycisku odświeżania danych
+            document.getElementById('refresh-data').addEventListener('click', function() {
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Odświeżanie...';
+                
+                // Odśwież dane
+                setTimeout(() => {
+                    fetchExternalInstruments();
+                    updateMarketIndicators();
+                    
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-sync-alt"></i> Odśwież dane';
+                    
+                    // Powiadomienie o odświeżeniu
+                    showToast('Dane zostały odświeżone pomyślnie!');
+                }, 1000);
+            });
+            
+            // Obsługa przycisku zmiany widoku
+            document.getElementById('toggle-view').addEventListener('click', function() {
+                // Implementacja zmiany widoku (opcjonalnie)
+                showToast('Funkcja zmiany widoku w trakcie implementacji');
+            });
         });
         
-        // Aktualizacja cen i zmian dla instrumentów
-        function updatePricesAndChanges() {
-            for (const symbol in instrumentsData) {
-                const priceElements = document.querySelectorAll(`.price-${symbol}`);
-                const changeElements = document.querySelectorAll(`.change-${symbol}`);
-                const data = instrumentsData[symbol];
+        // Aktualizacja wskaźników rynkowych
+        function updateMarketIndicators() {
+            fetch('/api/market_data')
+            .then(response => response.json())
+            .then(data => {
+                const indicators = data.market_indicators;
                 
-                priceElements.forEach(el => {
-                    el.textContent = `${data.currentPrice.toFixed(2)} zł`;
-                });
+                // WIG20
+                document.getElementById('wig20-value').textContent = indicators.wig20.value.toFixed(2) + ' pkt';
+                document.getElementById('wig20-change').textContent = 
+                    (indicators.wig20.change > 0 ? '+' : '') + indicators.wig20.change.toFixed(2) + '%';
+                document.getElementById('wig20-change').className = 
+                    'market-change ' + (indicators.wig20.change >= 0 ? 'text-success' : 'text-danger');
                 
-                changeElements.forEach(el => {
-                    el.textContent = `${data.change > 0 ? '+' : ''}${data.change.toFixed(2)}%`;
-                    el.classList.remove('text-success', 'text-danger');
-                    el.classList.add(data.change >= 0 ? 'text-success' : 'text-danger');
-                });
-            }
+                // USD/PLN
+                document.getElementById('usd-value').textContent = indicators.usd.value.toFixed(4) + ' zł';
+                document.getElementById('usd-change').textContent = 
+                    (indicators.usd.change > 0 ? '+' : '') + indicators.usd.change.toFixed(2) + '%';
+                document.getElementById('usd-change').className = 
+                    'market-change ' + (indicators.usd.change >= 0 ? 'text-success' : 'text-danger');
+                
+                // EUR/PLN
+                document.getElementById('eur-value').textContent = indicators.eur.value.toFixed(4) + ' zł';
+                document.getElementById('eur-change').textContent = 
+                    (indicators.eur.change > 0 ? '+' : '') + indicators.eur.change.toFixed(2) + '%';
+                document.getElementById('eur-change').className = 
+                    'market-change ' + (indicators.eur.change >= 0 ? 'text-success' : 'text-danger');
+                
+                // BTC/USD
+                document.getElementById('btc-value').textContent = indicators.btc.value.toFixed(2) + ' $';
+                document.getElementById('btc-change').textContent = 
+                    (indicators.btc.change > 0 ? '+' : '') + indicators.btc.change.toFixed(2) + '%';
+                document.getElementById('btc-change').className = 
+                    'market-change ' + (indicators.btc.change >= 0 ? 'text-success' : 'text-danger');
+            })
+            .catch(error => {
+                console.error('Error fetching market data:', error);
+            });
         }
         
-        // Symulacja zmian cen
-        function simulatePriceChanges() {
-            for (const symbol in instrumentsData) {
-                const data = instrumentsData[symbol];
+        // Pobieranie zewnętrznych instrumentów z API
+        function fetchExternalInstruments() {
+            fetch('/api/market_data')
+            .then(response => response.json())
+            .then(data => {
+                const externalInstruments = data.instruments || [];
                 
-                // Dodaj nową cenę z małą losową zmianą
-                const lastPrice = data.prices[data.prices.length - 1];
-                const change = (Math.random() - 0.48) * 5; // Większa szansa na wzrost
-                let newPrice = lastPrice + change;
-                newPrice = Math.max(0, newPrice); // Nie pozwól na ujemne ceny
+                // Aktualizacja tabeli
+                const tbody = document.getElementById('external-instruments');
+                tbody.innerHTML = '';
                 
-                data.prices.push(newPrice);
-                data.prices.shift(); // Usuń najstarszą cenę
+                externalInstruments.forEach(instrument => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><strong>${instrument.name}</strong></td>
+                        <td><span class="badge bg-secondary">${instrument.symbol}</span></td>
+                        <td class="fw-bold">${instrument.price ? instrument.price.toFixed(2) : '--,--'} $</td>
+                        <td class="${instrument.change >= 0 ? 'text-success' : 'text-danger'}">
+                            ${instrument.change >= 0 ? '+' : ''}${instrument.change ? instrument.change.toFixed(2) : '--,--'}%
+                        </td>
+                        <td>${instrument.volume ? instrument.volume.toLocaleString() : '---'}</td>
+                        <td>${instrument.opening ? instrument.opening.toFixed(2) : '--,--'} $</td>
+                        <td><small>${instrument.min ? instrument.min.toFixed(2) : '--,--'} / ${instrument.max ? instrument.max.toFixed(2) : '--,--'}</small></td>
+                        <td class="text-center">
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-success" onclick="showInstrumentChart('${instrument.symbol}')">
+                                    <i class="fas fa-chart-line"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="showBuyModal('${instrument.symbol}')">
+                                    <i class="fas fa-shopping-cart"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="showSellModal('${instrument.symbol}')">
+                                    <i class="fas fa-cash-register"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
                 
-                // Aktualizuj daty
-                const lastDate = new Date(data.dates[data.dates.length - 1]);
-                lastDate.setDate(lastDate.getDate() + 1);
-                data.dates.push(lastDate.toISOString().split('T')[0]);
-                data.dates.shift(); // Usuń najstarszą datę
+                // Zapisz do globalnego obiektu
+                externalInstruments.forEach(instr => {
+                    instrumentsData[instr.symbol] = {
+                        prices: instr.prices || [],
+                        dates: instr.dates || [],
+                        currentPrice: instr.price,
+                        change: instr.change,
+                        volume: instr.volume,
+                        opening: instr.opening,
+                        minPrice: instr.min,
+                        maxPrice: instr.max,
+                        name: instr.name
+                    };
+                });
                 
-                // Aktualizuj aktualną cenę i zmianę
-                data.currentPrice = newPrice;
-                data.change = ((newPrice - data.prices[data.prices.length - 2]) / data.prices[data.prices.length - 2]) * 100;
-            }
+                // Pokaż pierwszy instrument, jeśli jeszcze nie został wybrany
+                if (!document.getElementById('chart-title').textContent.includes(':')) {
+                    const firstSymbol = Object.keys(instrumentsData)[0];
+                    if (firstSymbol) {
+                        showInstrumentChart(firstSymbol);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching instruments:', error);
+            });
+        }
+        
+        // Renderowanie historii transakcji
+        function renderTransactionHistory() {
+            const tableBody = document.getElementById('transaction-history');
+            tableBody.innerHTML = '';
             
-            // Aktualizuj wygląd
-            updatePricesAndChanges();
-            
-            // Aktualizuj wykres, jeśli jest wyświetlony
-            const chartTitle = document.getElementById('chart-title').textContent;
-            const match = chartTitle.match(/Wykres instrumentu: (.*)/);
-            if (match && match[1]) {
-                const symbol = match[1];
-                updateChart(symbol);
-            }
+            transactionHistory.forEach(transaction => {
+                const row = document.createElement('tr');
+                const valueClass = transaction.type === 'kupno' ? 'text-danger' : 'text-success';
+                const valuePrefix = transaction.type === 'kupno' ? '-' : '+';
+                
+                row.innerHTML = `
+                    <td>${transaction.date}</td>
+                    <td>${transaction.instrument}</td>
+                    <td>${transaction.type === 'kupno' ? 
+                        '<span class="badge bg-primary">Kupno</span>' : 
+                        '<span class="badge bg-success">Sprzedaż</span>'}
+                    </td>
+                    <td>${transaction.amount}</td>
+                    <td>${transaction.price.toFixed(2)} zł</td>
+                    <td class="${valueClass}">${valuePrefix}${transaction.value.toFixed(2)} zł</td>
+                `;
+                tableBody.appendChild(row);
+            });
         }
         
         // Wyświetlenie wykresu instrumentu
@@ -308,59 +664,201 @@
             
             // Utwórz lub aktualizuj wykres
             updateChart(symbol);
+            
+            // Wyświetl szczegóły instrumentu
+            showInstrumentDetails(symbol);
         }
         
-        // Aktualizacja wykresu
-        function updateChart(symbol) {
-            const ctx = document.getElementById('instrumentChart').getContext('2d');
+        // Wyświetlenie szczegółów instrumentu
+        function showInstrumentDetails(symbol) {
             const data = instrumentsData[symbol];
+            const detailsDiv = document.getElementById('instrument-details');
             
-            // Zniszcz poprzedni wykres, jeśli istnieje
-            if (chart) {
-                chart.destroy();
+            if (!data) {
+                detailsDiv.innerHTML = `<p class="text-center text-muted">Brak danych dla ${symbol}</p>`;
+                return;
             }
             
-            // Utwórz nowy wykres
-            chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: data.dates,
-                    datasets: [{
-                        label: `Cena ${symbol}`,
-                        data: data.prices,
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                        tension: 0.1,
-                        pointRadius: 5,
-                        pointHoverRadius: 7
-                    }]
+            const name = data.name || symbol;
+            const changeClass = data.change >= 0 ? 'text-success' : 'text-danger';
+            const changeIcon = data.change >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+            
+            detailsDiv.innerHTML = `
+                <div class="text-center mb-4">
+                    <h3>${name}</h3>
+                    <h2 class="mb-2">${data.currentPrice ? data.currentPrice.toFixed(2) : '--,--'} $</h2>
+                    <span class="badge ${data.change >= 0 ? 'bg-success' : 'bg-danger'} price-badge">
+                        <i class="fas ${changeIcon}"></i> 
+                        ${data.change >= 0 ? '+' : ''}${data.change ? data.change.toFixed(2) : '--,--'}%
+                    </span>
+                </div>
+                
+                <div class="row g-3 mb-4">
+                    <div class="col-6">
+                        <div class="border rounded p-2 text-center">
+                            <div class="small text-muted">Otwarcie</div>
+                            <div>${data.opening ? data.opening.toFixed(2) : '--,--'} $</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-2 text-center">
+                            <div class="small text-muted">Wolumen</div>
+                            <div>${data.volume ? data.volume.toLocaleString() : '---'}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-2 text-center">
+                            <div class="small text-muted">Min. dziś</div>
+                            <div>${data.minPrice ? data.minPrice.toFixed(2) : '--,--'} $</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-2 text-center">
+                            <div class="small text-muted">Max. dziś</div>
+                            <div>${data.maxPrice ? data.maxPrice.toFixed(2) : '--,--'} $</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2 mt-3">
+                    <button class="btn btn-primary btn-action" onclick="showBuyModal('${symbol}')">
+                        <i class="fas fa-shopping-cart"></i> Kup ${symbol}
+                    </button>
+                    <button class="btn btn-danger btn-action" onclick="showSellModal('${symbol}')">
+                        <i class="fas fa-cash-register"></i> Sprzedaj ${symbol}
+                    </button>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <small class="text-muted">Ostatnia aktualizacja: ${new Date().toLocaleTimeString()}</small>
+                </div>
+            `;
+        }
+        
+        // Aktualizacja wykresu - nowa implementacja
+        function updateChart(symbol) {
+            const chartDiv = document.getElementById('instrumentChart');
+            const data = instrumentsData[symbol];
+            
+            if (!data || !data.prices || !data.dates) return;
+            
+            // Zniszcz poprzedni wykres, jeśli istnieje
+            if (apexChart) {
+                apexChart.destroy();
+            }
+            
+            // Użyj wszystkich dostępnych danych (od 1.01.2023 do dziś)
+            let prices = [...data.prices];
+            let dates = [...data.dates];
+            
+            // Przygotuj dane dla wykresu
+            const seriesData = prices.map((price, index) => {
+                return {
+                    x: new Date(dates[index]).getTime(),
+                    y: price
+                };
+            });
+            
+            // Konfiguracja wykresu
+            const options = {
+                series: [{
+                    name: symbol,
+                    data: seriesData
+                }],
+                chart: {
+                    type: 'area',
+                    height: 400,
+                    fontFamily: 'Arial, sans-serif',
+                    toolbar: {
+                        show: true,
+                        tools: {
+                            download: true,
+                            selection: true,
+                            zoom: true,
+                            zoomin: true,
+                            zoomout: true,
+                            pan: true,
+                            reset: true
+                        }
+                    },
+                    animations: {
+                        enabled: true,
+                        easing: 'easeinout',
+                        speed: 800
+                    }
                 },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            title: {
-                                display: true,
-                                text: 'Cena (zł)'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Data'
-                            }
+                dataLabels: {
+                    enabled: false
+                },
+                stroke: {
+                    curve: 'smooth',
+                    width: 3,
+                    colors: [data.change >= 0 ? '#28a745' : '#dc3545']
+                },
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        shade: 'dark',
+                        gradientToColors: [data.change >= 0 ? '#28a745' : '#dc3545'],
+                        shadeIntensity: 1,
+                        type: 'vertical',
+                        opacityFrom: 0.7,
+                        opacityTo: 0.2,
+                    },
+                },
+                markers: {
+                    size: 4,
+                    colors: [data.change >= 0 ? '#28a745' : '#dc3545'],
+                    strokeWidth: 0,
+                    hover: {
+                        size: 6
+                    }
+                },
+                xaxis: {
+                    type: 'datetime',
+                    labels: {
+                        formatter: function(val) {
+                            return new Date(val).toLocaleDateString();
+                        }
+                    },
+                    title: {
+                        text: 'Data (od 1.01.2023 do dziś)'
+                    }
+                },
+                yaxis: {
+                    title: {
+                        text: 'Cena ($)'
+                    },
+                    labels: {
+                        formatter: function(val) {
+                            return val.toFixed(2);
                         }
                     }
+                },
+                tooltip: {
+                    x: {
+                        format: 'dd MMM yyyy'
+                    },
+                    y: {
+                        formatter: function(val) {
+                            return val.toFixed(2) + ' $';
+                        }
+                    }
+                },
+                theme: {
+                    palette: data.change >= 0 ? 'palette1' : 'palette4'
                 }
-            });
+            };
+            
+            apexChart = new ApexCharts(chartDiv, options);
+            apexChart.render();
         }
         
         // Wyświetl modal kupna
         function showBuyModal(symbol) {
             const data = instrumentsData[symbol];
             document.getElementById('buy-symbol').value = symbol;
-            document.getElementById('buy-current-price').textContent = `${data.currentPrice.toFixed(2)} zł`;
+            document.getElementById('buy-current-price').textContent = `${data.currentPrice.toFixed(2)} $`;
             
             // Ustaw obsługę zdarzeń dla kalkulacji kosztu
             const amountInput = document.getElementById('buy-amount');
@@ -368,9 +866,23 @@
             amountInput.oninput = function() {
                 const amount = parseInt(this.value) || 0;
                 const totalCost = amount * data.currentPrice;
-                document.getElementById('buy-total-cost').textContent = `${totalCost.toFixed(2)} zł`;
+                document.getElementById('buy-total-cost').textContent = `${totalCost.toFixed(2)} $`;
+                
+                // Aktualizuj pasek postępu
+                const progressBar = document.getElementById('buy-progress');
+                const progressPercentage = Math.min(100, (totalCost / 75000) * 100);
+                progressBar.style.width = `${progressPercentage}%`;
+                
+                // Zmień kolor paska w zależności od wartości
+                if (progressPercentage < 30) {
+                    progressBar.className = 'progress-bar bg-success';
+                } else if (progressPercentage < 70) {
+                    progressBar.className = 'progress-bar bg-warning';
+                } else {
+                    progressBar.className = 'progress-bar bg-danger';
+                }
             };
-            amountInput.oninput(); // Wywołaj raz na starcie
+            amountInput.oninput(); // Wywołaj od razu po ustawieniu wartości
             
             buyModal.show();
         }
@@ -379,7 +891,7 @@
         function showSellModal(symbol) {
             const data = instrumentsData[symbol];
             document.getElementById('sell-symbol').value = symbol;
-            document.getElementById('sell-current-price').textContent = `${data.currentPrice.toFixed(2)} zł`;
+            document.getElementById('sell-current-price').textContent = `${data.currentPrice.toFixed(2)} $`;
             
             // Ustaw obsługę zdarzeń dla kalkulacji zysku
             const amountInput = document.getElementById('sell-amount');
@@ -387,19 +899,25 @@
             amountInput.oninput = function() {
                 const amount = parseInt(this.value) || 0;
                 const totalGain = amount * data.currentPrice;
-                document.getElementById('sell-total-gain').textContent = `${totalGain.toFixed(2)} zł`;
+                document.getElementById('sell-total-gain').textContent = `${totalGain.toFixed(2)} $`;
+                
+                // Aktualizuj pasek postępu
+                const progressBar = document.getElementById('sell-progress');
+                const progressPercentage = Math.min(100, (amount / 100) * 100);
+                progressBar.style.width = `${progressPercentage}%`;
             };
-            amountInput.oninput(); // Wywołaj raz na starcie
+            amountInput.oninput(); // Wywołaj od razu po ustawieniu wartości
             
             sellModal.show();
         }
         
-        // Potwierdzenie kupna
+        // Zatwierdzenie transakcji kupna
         function confirmBuy() {
             const symbol = document.getElementById('buy-symbol').value;
             const amount = parseInt(document.getElementById('buy-amount').value);
-            const price = parseFloat(document.getElementById('buy-current-price').textContent.replace(' zł', ''));
+            const price = instrumentsData[symbol].currentPrice;
             
+            // Wysyłka żądania do API
             fetch('/api/transaction', {
                 method: 'POST',
                 headers: {
@@ -415,25 +933,44 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert(`Zakupiono ${amount} jednostek instrumentu ${symbol}`);
+                    // Dodaj transakcję do historii
+                    const now = new Date();
+                    const dateStr = now.toISOString().slice(0, 10) + ' ' + now.toLocaleTimeString().slice(0, 5);
+                    
+                    transactionHistory.unshift({
+                        date: dateStr,
+                        instrument: symbol,
+                        type: 'kupno',
+                        amount: amount,
+                        price: price,
+                        value: amount * price
+                    });
+                    
+                    // Aktualizuj wyświetlaną historię
+                    renderTransactionHistory();
+                    
+                    // Zamknij modal
+                    buyModal.hide();
+                    
+                    // Wyświetl potwierdzenie
+                    alert(`Pomyślnie zakupiono ${amount} sztuk ${symbol} po cenie ${price.toFixed(2)} $!`);
                 } else {
                     alert(`Błąd: ${data.message}`);
                 }
-                buyModal.hide();
             })
             .catch(error => {
                 console.error('Error:', error);
                 alert('Wystąpił błąd podczas przetwarzania transakcji');
-                buyModal.hide();
             });
         }
         
-        // Potwierdzenie sprzedaży
+        // Zatwierdzenie transakcji sprzedaży
         function confirmSell() {
             const symbol = document.getElementById('sell-symbol').value;
             const amount = parseInt(document.getElementById('sell-amount').value);
-            const price = parseFloat(document.getElementById('sell-current-price').textContent.replace(' zł', ''));
+            const price = instrumentsData[symbol].currentPrice;
             
+            // Wysyłka żądania do API
             fetch('/api/transaction', {
                 method: 'POST',
                 headers: {
@@ -449,16 +986,75 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert(`Sprzedano ${amount} jednostek instrumentu ${symbol}`);
+                    // Dodaj transakcję do historii
+                    const now = new Date();
+                    const dateStr = now.toISOString().slice(0, 10) + ' ' + now.toLocaleTimeString().slice(0, 5);
+                    
+                    transactionHistory.unshift({
+                        date: dateStr,
+                        instrument: symbol,
+                        type: 'sprzedaz',
+                        amount: amount,
+                        price: price,
+                        value: amount * price
+                    });
+                    
+                    // Aktualizuj wyświetlaną historię
+                    renderTransactionHistory();
+                    
+                    // Zamknij modal
+                    sellModal.hide();
+                    
+                    // Wyświetl potwierdzenie
+                    alert(`Pomyślnie sprzedano ${amount} sztuk ${symbol} po cenie ${price.toFixed(2)} $!`);
                 } else {
                     alert(`Błąd: ${data.message}`);
                 }
-                sellModal.hide();
             })
             .catch(error => {
                 console.error('Error:', error);
                 alert('Wystąpił błąd podczas przetwarzania transakcji');
-                sellModal.hide();
+            });
+        }
+        
+        // Toast dla komunikatów
+        function showToast(message) {
+            const toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            
+            const toast = document.createElement('div');
+            toast.className = 'toast align-items-center bg-success text-white';
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
+            
+            const toastBody = document.createElement('div');
+            toastBody.className = 'd-flex';
+            
+            const toastContent = document.createElement('div');
+            toastContent.className = 'toast-body';
+            toastContent.innerHTML = `<i class="fas fa-check-circle me-2"></i> ${message}`;
+            
+            const closeButton = document.createElement('button');
+            closeButton.type = 'button';
+            closeButton.className = 'btn-close btn-close-white me-2 m-auto';
+            closeButton.setAttribute('data-bs-dismiss', 'toast');
+            closeButton.setAttribute('aria-label', 'Close');
+            
+            toastBody.appendChild(toastContent);
+            toastBody.appendChild(closeButton);
+            toast.appendChild(toastBody);
+            toastContainer.appendChild(toast);
+            document.body.appendChild(toastContainer);
+            
+            const bsToast = new bootstrap.Toast(toast, {
+                delay: 3000
+            });
+            bsToast.show();
+            
+            // Usuń toast z DOM po ukryciu
+            toast.addEventListener('hidden.bs.toast', function () {
+                toastContainer.remove();
             });
         }
     </script>
