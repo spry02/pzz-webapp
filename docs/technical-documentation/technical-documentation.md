@@ -1,6 +1,6 @@
 # Dokumentacja Techniczna - Demonstracyjna Giełda
 
-![Data aktualizacji](https://img.shields.io/badge/Data_aktualizacji-2025--04--24-blue)
+![Data aktualizacji](https://img.shields.io/badge/Data_aktualizacji-2025--04--24-brightgreen)
 ![Wersja](https://img.shields.io/badge/Wersja-1.0-brightgreen)
 ![Status](https://img.shields.io/badge/Status-Produkcyjny-success)
 
