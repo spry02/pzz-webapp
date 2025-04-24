@@ -1,4 +1,7 @@
 # pzz-webapp
+![Data aktualizacji](https://img.shields.io/badge/Data_aktualizacji-2025--04--24-brightgreen)
+![Wersja](https://img.shields.io/badge/Wersja-1.0-brightgreen)
+
 Aplikacja webowa "Demonstracyjna Giełda" - Pracownia Programowania Zespołowego
 
 ## 🔎 Przegląd projektu
@@ -47,6 +50,8 @@ W tym repozytorium znajdują się:
 - [Dokumentacja techniczna bazy danych](./docs/database/technical-documentation.md)
 - [Diagram ERD bazy danych](./docs/database/diagram_erd.png)
 - [Dokumentacja wymagań projektu](./docs/project-requirements/project-requirements.md)
+- [Dokumentacja techniczna projektu](./docs/technical-documentation/technical-documentation.md)
+- [Dokumentacja użytkownika](./docs/user-documentation/user-documentation.md)
 
 ## 🔄 Aktualne funkcjonalności
 - Obsługa kont użytkowników (rejestracja, logowanie, edycja profilu)
