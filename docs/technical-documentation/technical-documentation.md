@@ -63,13 +63,13 @@ Aplikacja została zaprojektowana jako wielowarstwowa:
 pzz-webapp/
 ├── database/
 │ └── migrations/ 
-│    └── 001_initial_schema.sql 
+│   └── 001_initial_schema.sql 
 ├── docs/ 
 │ ├── database/ 
 │ │ ├── diagram_erd.png 
 │ │ └── technical-documentation.md 
 │ └── project-requirements/ 
-│    └── project-requirements.md 
+│   └── project-requirements.md 
 ├── website/ 
 │ ├── static/ 
 │ │ └── style.css 
