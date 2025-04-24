@@ -59,6 +59,7 @@ Aplikacja została zaprojektowana jako wielowarstwowa:
 - **Werkzeug**: Narzędzia do hashowania haseł i innych funkcji bezpieczeństwa
 
 ## 📁 Struktura projektu
+```
 pzz-webapp/
 ├── database/
 │ └── migrations/ 
@@ -80,6 +81,7 @@ pzz-webapp/
 │ │ └── register.html 
 │ └── app.py 
 └── README.md
+```
 
 ## 💾 Baza danych
 
