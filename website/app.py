@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import logging
 from functools import wraps
 import random
+import yfinance as yf
 
 # Konfiguracja logowania, aby wykluczyć komunikaty debugowania PIL
 logging.basicConfig(level=logging.INFO)
@@ -239,17 +240,84 @@ def get_external_market_data():
             'instruments': []
         }
 
+def get_real_market_data():
+    # Symbole Yahoo Finance
+    symbols = {
+        'SILVER': 'SI=F',
+        'GOLD': 'GC=F',
+        'BTC': 'BTC-USD',
+        'NATGAS': 'NG=F',
+        'AAPL': 'AAPL'
+    }
+    instruments = []
+    for name, symbol in symbols.items():
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="5d", interval="1h")
+        if hist.empty:
+            continue
+        prices = hist['Close'].tolist()
+        dates = [d.strftime('%Y-%m-%d %H:%M:%S') for d in hist.index]
+        price = prices[-1]
+        prev_price = prices[-2] if len(prices) > 1 else price
+        change = round((price - prev_price) / prev_price * 100, 2) if prev_price else 0
+        volume = hist['Volume'].tolist()[-1]
+        opening = hist['Open'].tolist()[-1]
+        min_price = min(hist['Low'].tolist()[-24:])
+        max_price = max(hist['High'].tolist()[-24:])
+        instruments.append({
+            'symbol': symbol,
+            'name': name,
+            'prices': prices,
+            'dates': dates,
+            'price': price,
+            'change': change,
+            'volume': volume,
+            'opening': opening,
+            'min': min_price,
+            'max': max_price
+        })
+
+    # WIG20 z Yahoo Finance (symbol WIG20.WA - dzienny, bo ^WIG20 nie działa na godzinowych)
+    wig20_ticker = yf.Ticker("WIG20.WA")
+    wig20_hist = wig20_ticker.history(period="5d", interval="1d")
+    wig20_value = wig20_hist['Close'].iloc[-1] if not wig20_hist.empty else 0
+    wig20_prev = wig20_hist['Close'].iloc[-2] if len(wig20_hist) > 1 else wig20_value
+    wig20_change = round((wig20_value - wig20_prev) / wig20_prev * 100, 2) if wig20_prev else 0
+
+    # USD/PLN i EUR/PLN (Yahoo: USDPLN=X, EURPLN=X)
+    usd_ticker = yf.Ticker("USDPLN=X")
+    usd_hist = usd_ticker.history(period="1d", interval="1m")
+    usd_value = usd_hist['Close'].iloc[-1] if not usd_hist.empty else 0
+    usd_prev = usd_hist['Close'].iloc[-2] if len(usd_hist) > 1 else usd_value
+    usd_change = round((usd_value - usd_prev) / usd_prev * 100, 2) if usd_prev else 0
+
+    eur_ticker = yf.Ticker("EURPLN=X")
+    eur_hist = eur_ticker.history(period="1d", interval="1m")
+    eur_value = eur_hist['Close'].iloc[-1] if not eur_hist.empty else 0
+    eur_prev = eur_hist['Close'].iloc[-2] if len(eur_hist) > 1 else eur_value
+    eur_change = round((eur_value - eur_prev) / eur_prev * 100, 2) if eur_prev else 0
+
+    btc = next((i for i in instruments if i['symbol'] == 'BTC-USD'), None)
+    btc_value = btc['price'] if btc else 0
+    btc_prev = btc['prices'][-2] if btc and len(btc['prices']) > 1 else btc_value
+    btc_change = round((btc_value - btc_prev) / btc_prev * 100, 2) if btc_prev else 0
+
+    return {
+        'market_indicators': {
+            'wig20': {'value': wig20_value, 'change': wig20_change},
+            'usd': {'value': usd_value, 'change': usd_change},
+            'eur': {'value': eur_value, 'change': eur_change},
+            'btc': {'value': btc_value, 'change': btc_change}
+        },
+        'instruments': instruments
+    }
+
 # Dashboard z wykresami instrumentów handlowych
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # Pobierz tylko rzeczywiste instrumenty z API, pomijając instrumenty z bazy danych
-    # Wcześniej było: instruments = db.get_instruments()
     instruments = []
-    
-    # Pobierz dane rynkowe
-    market_data = get_external_market_data()
-    
+    market_data = get_real_market_data()
     return render_template('dashboard.html', 
                           instruments=instruments,
                           market_data=market_data)
@@ -258,7 +326,99 @@ def dashboard():
 @app.route('/api/market_data')
 @login_required
 def api_market_data():
-    return jsonify(get_external_market_data())
+    return jsonify(get_real_market_data())
+
+@app.route('/api/open_positions')
+@login_required
+def api_open_positions():
+    user_id = session['user_id']
+    cursor = db.connection.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT t.*, i.nazwa as instrument_nazwa, i.symbol
+        FROM Transakcja t
+        JOIN Instrument_Handlowy i ON t.instrument_id = i.instrument_id
+        WHERE t.user_id = %s
+        ORDER BY t.data_transakcji ASC
+    """, (user_id,))
+    transactions = cursor.fetchall()
+    cursor.close()
+
+    # Grupowanie pozycji long/short
+    positions = {}
+    for t in transactions:
+        symbol = t['symbol']
+        if symbol not in positions:
+            positions[symbol] = {'long': 0, 'short': 0, 'long_sum': 0, 'short_sum': 0, 'instrument_nazwa': t['instrument_nazwa']}
+        if t['typ_transakcji'] == 'kupno':
+            positions[symbol]['long'] += float(t['ilosc'])
+            positions[symbol]['long_sum'] += float(t['ilosc']) * float(t['cena'])
+        elif t['typ_transakcji'] == 'sprzedaz':
+            positions[symbol]['short'] += float(t['ilosc'])
+            positions[symbol]['short_sum'] += float(t['ilosc']) * float(t['cena'])
+
+    # Oblicz otwarte pozycje (long - short)
+    open_positions = []
+    market_data = get_real_market_data()
+    prices = {i['symbol']: i['price'] for i in market_data['instruments']}
+    for symbol, pos in positions.items():
+        net = pos['long'] - pos['short']
+        if net != 0:
+            avg_price = abs((pos['long_sum'] - pos['short_sum']) / abs(net))
+            direction = 'long' if net > 0 else 'short'
+            current_price = prices.get(symbol, 0)
+            profit = (current_price - avg_price) * abs(net) if direction == 'long' else (avg_price - current_price) * abs(net)
+            open_positions.append({
+                'symbol': symbol,
+                'instrument_nazwa': pos['instrument_nazwa'],
+                'amount': abs(net),
+                'direction': direction,
+                'avg_price': round(avg_price, 2),
+                'current_price': round(current_price, 2),
+                'profit': round(profit, 2)
+            })
+
+    return jsonify(open_positions)
+
+@app.route('/api/close_position', methods=['POST'])
+@login_required
+def api_close_position():
+    data = request.json
+    user_id = session['user_id']
+    symbol = data['symbol']
+    direction = data['direction']
+    amount = float(data['amount'])
+    price = float(data['price'])
+
+    # Pobierz instrument_id
+    cursor = db.connection.cursor()
+    cursor.execute("SELECT instrument_id FROM Instrument_Handlowy WHERE symbol = %s", (symbol,))
+    result = cursor.fetchone()
+    if not result:
+        cursor.close()
+        return jsonify({'success': False, 'message': 'Nieznany symbol instrumentu'}), 404
+    instrument_id = result[0]
+
+    # Pobierz saldo użytkownika
+    cursor.execute("SELECT saldo FROM Uzytkownik WHERE user_id = %s", (user_id,))
+    saldo = cursor.fetchone()[0]
+
+    # Dodaj przeciwstawną transakcję
+    transaction_type = 'sprzedaz' if direction == 'long' else 'kupno'
+    transaction_id = db.create_transaction(user_id, instrument_id, transaction_type, amount, price)
+
+    # Zaktualizuj saldo
+    if transaction_id:
+        if transaction_type == 'kupno':
+            new_saldo = saldo - amount * price
+        else:  # sprzedaż
+            new_saldo = saldo + amount * price
+        cursor.execute("UPDATE Uzytkownik SET saldo = %s WHERE user_id = %s", (new_saldo, user_id))
+        db.connection.commit()
+        cursor.close()
+        return jsonify({'success': True})
+    else:
+        cursor.close()
+        return jsonify({'success': False, 'message': 'Błąd podczas zamykania pozycji'}), 500
 
 @app.before_request
 def redirect_to_http():
@@ -410,37 +570,52 @@ def create_transaction():
     data = request.json
     if not data:
         return jsonify({'success': False, 'message': 'Brak danych'}), 400
-    
+
     try:
         user_id = session['user_id']
         symbol = data['symbol']
         transaction_type = data['type']  # 'kupno' or 'sprzedaz'
         amount = float(data['amount'])
         price = float(data['price'])
-        
+
         # Get instrument_id from symbol
         cursor = db.connection.cursor()
         cursor.execute("SELECT instrument_id FROM Instrument_Handlowy WHERE symbol = %s", (symbol,))
         result = cursor.fetchone()
-        cursor.close()
-        
         if not result:
+            cursor.close()
             return jsonify({'success': False, 'message': 'Nieznany symbol instrumentu'}), 404
-        
         instrument_id = result[0]
-        
-        # Create the transaction
+
+        # Pobierz saldo użytkownika
+        cursor.execute("SELECT saldo FROM Uzytkownik WHERE user_id = %s", (user_id,))
+        saldo = cursor.fetchone()[0]
+
+        # Sprawdź czy użytkownik ma wystarczające środki przy kupnie (long)
+        if transaction_type == 'kupno' and saldo < amount * price:
+            cursor.close()
+            return jsonify({'success': False, 'message': 'Brak wystarczających środków'}), 400
+
+        # Utwórz transakcję
         transaction_id = db.create_transaction(user_id, instrument_id, transaction_type, amount, price)
-        
+
+        # Zaktualizuj saldo
         if transaction_id:
+            if transaction_type == 'kupno':
+                new_saldo = saldo - amount * price
+            else:  # sprzedaż
+                new_saldo = saldo + amount * price
+            cursor.execute("UPDATE Uzytkownik SET saldo = %s WHERE user_id = %s", (new_saldo, user_id))
+            db.connection.commit()
+            cursor.close()
             return jsonify({'success': True, 'transaction_id': transaction_id})
         else:
+            cursor.close()
             return jsonify({'success': False, 'message': 'Błąd podczas tworzenia transakcji'}), 500
-    
+
     except Exception as e:
         app.logger.error(f"Error creating transaction: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
