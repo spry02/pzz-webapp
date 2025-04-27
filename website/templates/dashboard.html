@@ -291,7 +291,7 @@
                             <div class="card">
                                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                                     <h5 class="mb-0" id="chart-title">Wykres instrumentu</h5>
-                                    <span class="badge bg-light text-dark">Świece 1D</span>
+                                    <!-- <span class="badge bg-light text-dark">Świece 1D</span> -->
                                 </div>
                                 <div class="card-body chart-container">
                                     <div id="instrumentChart" style="width: 100%; height: 400px;"></div>
@@ -390,6 +390,32 @@
                                         </tr>
                                     </thead>
                                     <tbody id="transaction-history">
+                                        <!-- Dane będą wstawiane dynamicznie przez JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-4">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">Twoje otwarte pozycje</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Instrument</th>
+                                            <th>Typ</th>
+                                            <th>Ilość</th>
+                                            <th>Śr. cena otwarcia</th>
+                                            <th>Aktualna cena</th>
+                                            <th>Zysk/Strata</th>
+                                            <th>Akcja</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="open-positions-table">
                                         <!-- Dane będą wstawiane dynamicznie przez JS -->
                                     </tbody>
                                 </table>
@@ -523,6 +549,8 @@
                 // Implementacja zmiany widoku (opcjonalnie)
                 showToast('Funkcja zmiany widoku w trakcie implementacji');
             });
+
+            fetchOpenPositions();
         });
         
         // Aktualizacja wskaźników rynkowych
@@ -821,9 +849,6 @@
                             return new Date(val).toLocaleDateString();
                         }
                     },
-                    title: {
-                        text: 'Data (od 1.01.2023 do dziś)'
-                    }
                 },
                 yaxis: {
                     title: {
@@ -1055,6 +1080,53 @@
             // Usuń toast z DOM po ukryciu
             toast.addEventListener('hidden.bs.toast', function () {
                 toastContainer.remove();
+            });
+        }
+
+        // Pobierz i wyświetl otwarte pozycje
+        function fetchOpenPositions() {
+            fetch('/api/open_positions')
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.getElementById('open-positions-table');
+                tbody.innerHTML = '';
+                data.forEach(pos => {
+                    const row = document.createElement('tr');
+                    const profitClass = pos.profit >= 0 ? 'text-success' : 'text-danger';
+                    row.innerHTML = `
+                        <td>${pos.instrument_nazwa} (${pos.symbol})</td>
+                        <td>${pos.direction === 'long' ? '<span class="badge bg-success">Long</span>' : '<span class="badge bg-danger">Short</span>'}</td>
+                        <td>${pos.amount}</td>
+                        <td>${pos.avg_price.toFixed(2)} $</td>
+                        <td>${pos.current_price.toFixed(2)} $</td>
+                        <td class="${profitClass}">${pos.profit >= 0 ? '+' : ''}${pos.profit.toFixed(2)} $</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="closePosition('${pos.symbol}', '${pos.direction}', ${pos.amount}, ${pos.current_price})">
+                                Zamknij
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            });
+        }
+
+        // Zamknij pozycję
+        function closePosition(symbol, direction, amount, price) {
+            if (!confirm('Czy na pewno chcesz zamknąć tę pozycję?')) return;
+            fetch('/api/close_position', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ symbol, direction, amount, price })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    fetchOpenPositions();
+                    showToast('Pozycja została zamknięta!');
+                } else {
+                    alert('Błąd: ' + data.message);
+                }
             });
         }
     </script>
