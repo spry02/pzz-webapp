@@ -211,12 +211,6 @@ System wykorzystuje oparty na sesjach mechanizm uwierzytelniania:
 
 6. Otwórz przeglądarkę i przejdź pod adres `http://localhost:5000`
 
-## ⚠️ Znane problemy i ograniczenia
-
-1. Aplikacja przekierowuje zapytania HTTPS na HTTP, co może powodować problemy z bezpieczeństwem w środowisku produkcyjnym.
-2. System nie obsługuje dwuskładnikowego uwierzytelniania (2FA).
-3. Aplikacja ma ograniczone możliwości personalizacji ustawień użytkownika.
-
 ---
 
 **© 2025 Demonstracyjna Giełda / Pracownia Programowania Zespołowego**
