@@ -211,13 +211,6 @@ Role administratora nadaje istniejący administrator systemu. Skontaktuj się z 
    - Sprawdź połączenie internetowe
    - Odśwież stronę lub wyloguj się i zaloguj ponownie
 
-## 📞 Kontakt i wsparcie
-
-W przypadku problemów technicznych, pytań lub sugestii:
-
-- Zgłoś problem przez system GitHub Issues
-- Sprawdź dokumentację techniczną dostępną w repozytorium GitHub
-
 ---
 
 **© 2025 Demonstracyjna Giełda / Pracownia Programowania Zespołowego**
