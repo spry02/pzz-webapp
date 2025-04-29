@@ -188,14 +188,19 @@
                     
                     <div class="card bg-dark text-white border-secondary mb-3">
                         <div class="card-body p-3">
-                            <h6 class="card-title"><i class="fas fa-wallet"></i> Twój portfel</h6>
-                            <h4>100,000.00 zł</h4>
+                            <h6 class="card-title d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-wallet"></i> Twój portfel</span>
+                                <button class="btn btn-sm btn-success" onclick="showAddFundsModal()">
+                                    <i class="fas fa-plus-circle"></i> Dodaj środki
+                                </button>
+                            </h6>
+                            <h4 id="user-balance">{{ saldo|round(2) }} $</h4>
                             <div class="progress mt-2" style="height: 10px;">
-                                <div class="progress-bar bg-success" style="width: 75%"></div>
+                                <div class="progress-bar bg-success" id="balance-progress" style="width: 0%"></div>
                             </div>
                             <div class="d-flex justify-content-between mt-2">
                                 <small>Dostępne</small>
-                                <small>75,000 zł</small>
+                                <small id="available-balance">{{ saldo|round(2) }} $</small>
                             </div>
                         </div>
                     </div>
@@ -499,6 +504,32 @@
         </div>
     </div>
 
+    <!-- Modal do dodawania środków -->
+    <div class="modal fade" id="addFundsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">Dodaj środki do konta</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addFundsForm">
+                        <div class="mb-3">
+                            <label for="add-funds-amount" class="form-label">Kwota do dodania ($):</label>
+                            <input type="number" class="form-control" id="add-funds-amount" min="1" step="0.01" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="button" class="btn btn-success" onclick="confirmAddFunds()">
+                        <i class="fas fa-check-circle"></i> Dodaj środki
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Zmienne globalne
@@ -506,7 +537,9 @@
         let apexChart;
         const buyModal = new bootstrap.Modal(document.getElementById('buyModal'));
         const sellModal = new bootstrap.Modal(document.getElementById('sellModal'));
+        const addFundsModal = new bootstrap.Modal(document.getElementById('addFundsModal'));
         let instrumentsData = {};
+        let userBalance = {{ saldo }};
         
         // Dane przykładowe dla transakcji
         const transactionHistory = [
@@ -551,6 +584,9 @@
             });
 
             fetchOpenPositions();
+            
+            // Aktualizuj wyświetlanie salda
+            updateBalanceDisplay();
         });
         
         // Aktualizacja wskaźników rynkowych
@@ -679,8 +715,8 @@
                         '<span class="badge bg-success">Sprzedaż</span>'}
                     </td>
                     <td>${transaction.amount}</td>
-                    <td>${transaction.price.toFixed(2)} zł</td>
-                    <td class="${valueClass}">${valuePrefix}${transaction.value.toFixed(2)} zł</td>
+                    <td>${transaction.price.toFixed(2)} $</td>
+                    <td class="${valueClass}">${valuePrefix}${transaction.value.toFixed(2)} $</td>
                 `;
                 tableBody.appendChild(row);
             });
@@ -942,7 +978,14 @@
             const amount = parseInt(document.getElementById('buy-amount').value);
             const price = instrumentsData[symbol].currentPrice;
             
-            // Wysyłka żądania do API
+            // Sprawdź czy użytkownik ma wystarczające środki
+            const totalCost = amount * price;
+            if (totalCost > userBalance) {
+                alert('Brak wystarczających środków na koncie!');
+                return;
+            }
+            
+            // Wysyłka żądania do API - make sure we send strings to avoid precision issues
             fetch('/api/transaction', {
                 method: 'POST',
                 headers: {
@@ -951,13 +994,17 @@
                 body: JSON.stringify({
                     symbol: symbol,
                     type: 'kupno',
-                    amount: amount,
-                    price: price
+                    amount: amount.toString(),
+                    price: price.toString()
                 })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // Aktualizuj saldo użytkownika
+                    userBalance -= totalCost;
+                    updateBalanceDisplay();
+                    
                     // Dodaj transakcję do historii
                     const now = new Date();
                     const dateStr = now.toISOString().slice(0, 10) + ' ' + now.toLocaleTimeString().slice(0, 5);
@@ -968,17 +1015,18 @@
                         type: 'kupno',
                         amount: amount,
                         price: price,
-                        value: amount * price
+                        value: totalCost
                     });
                     
                     // Aktualizuj wyświetlaną historię
                     renderTransactionHistory();
+                    fetchOpenPositions();
                     
                     // Zamknij modal
                     buyModal.hide();
                     
                     // Wyświetl potwierdzenie
-                    alert(`Pomyślnie zakupiono ${amount} sztuk ${symbol} po cenie ${price.toFixed(2)} $!`);
+                    showToast(`Pomyślnie zakupiono ${amount} sztuk ${symbol} po cenie ${price.toFixed(2)} $!`);
                 } else {
                     alert(`Błąd: ${data.message}`);
                 }
@@ -994,8 +1042,9 @@
             const symbol = document.getElementById('sell-symbol').value;
             const amount = parseInt(document.getElementById('sell-amount').value);
             const price = instrumentsData[symbol].currentPrice;
+            const totalValue = amount * price;
             
-            // Wysyłka żądania do API
+            // Wysyłka żądania do API - make sure we send strings to avoid precision issues
             fetch('/api/transaction', {
                 method: 'POST',
                 headers: {
@@ -1004,13 +1053,17 @@
                 body: JSON.stringify({
                     symbol: symbol,
                     type: 'sprzedaz',
-                    amount: amount,
-                    price: price
+                    amount: amount.toString(),
+                    price: price.toString()
                 })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // Aktualizuj saldo użytkownika
+                    userBalance += totalValue;
+                    updateBalanceDisplay();
+                    
                     // Dodaj transakcję do historii
                     const now = new Date();
                     const dateStr = now.toISOString().slice(0, 10) + ' ' + now.toLocaleTimeString().slice(0, 5);
@@ -1021,17 +1074,18 @@
                         type: 'sprzedaz',
                         amount: amount,
                         price: price,
-                        value: amount * price
+                        value: totalValue
                     });
                     
                     // Aktualizuj wyświetlaną historię
                     renderTransactionHistory();
+                    fetchOpenPositions();
                     
                     // Zamknij modal
                     sellModal.hide();
                     
                     // Wyświetl potwierdzenie
-                    alert(`Pomyślnie sprzedano ${amount} sztuk ${symbol} po cenie ${price.toFixed(2)} $!`);
+                    showToast(`Pomyślnie sprzedano ${amount} sztuk ${symbol} po cenie ${price.toFixed(2)} $!`);
                 } else {
                     alert(`Błąd: ${data.message}`);
                 }
@@ -1039,6 +1093,102 @@
             .catch(error => {
                 console.error('Error:', error);
                 alert('Wystąpił błąd podczas przetwarzania transakcji');
+            });
+        }
+        
+        // Wyświetl modal dodawania środków
+        function showAddFundsModal() {
+            document.getElementById('add-funds-amount').value = '';
+            addFundsModal.show();
+        }
+        
+        // Zatwierdzenie dodania środków
+        function confirmAddFunds() {
+            const amount = parseFloat(document.getElementById('add-funds-amount').value);
+            if (!amount || amount <= 0) {
+                alert('Proszę wprowadzić poprawną kwotę większą od zera');
+                return;
+            }
+            
+            fetch('/api/add_funds', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    amount: amount.toString() // Convert to string to preserve precision
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    userBalance = data.new_balance;
+                    updateBalanceDisplay();
+                    addFundsModal.hide();
+                    showToast(`Pomyślnie dodano ${amount.toFixed(2)} $ do konta!`);
+                } else {
+                    alert(`Błąd: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Wystąpił błąd podczas dodawania środków');
+            });
+        }
+        
+        // Aktualizacja wyświetlania salda
+        function updateBalanceDisplay() {
+            document.getElementById('user-balance').textContent = `${userBalance.toFixed(2)} $`;
+            document.getElementById('available-balance').textContent = `${userBalance.toFixed(2)} $`;
+            
+            // Aktualizuj pasek postępu - przykładowy limit 250,000 zł
+            const maxLimit = 250000;
+            const progressPercentage = Math.min(100, (userBalance / maxLimit) * 100);
+            const progressBar = document.getElementById('balance-progress');
+            progressBar.style.width = `${progressPercentage}%`;
+            
+            // Zmień kolor paska w zależności od wartości
+            if (progressPercentage < 30) {
+                progressBar.className = 'progress-bar bg-danger';
+            } else if (progressPercentage < 70) {
+                progressBar.className = 'progress-bar bg-warning';
+            } else {
+                progressBar.className = 'progress-bar bg-success';
+            }
+        }
+        
+        // Zaktualizuj funkcję closePosition aby prawidłowo obsługiwać typy
+        function closePosition(symbol, direction, amount, price) {
+            if (!confirm('Czy na pewno chcesz zamknąć tę pozycję?')) return;
+            
+            const totalValue = amount * price;
+            
+            fetch('/api/close_position', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    symbol, 
+                    direction, 
+                    amount: amount.toString(), 
+                    price: price.toString() 
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Aktualizuj saldo w zależności od typu pozycji (long/short)
+                    if (direction === 'long') {
+                        userBalance += totalValue;
+                    } else {
+                        userBalance -= totalValue;
+                    }
+                    updateBalanceDisplay();
+                    
+                    fetchOpenPositions();
+                    showToast('Pozycja została zamknięta!');
+                } else {
+                    alert('Błąd: ' + data.message);
+                }
             });
         }
         
@@ -1108,25 +1258,6 @@
                     `;
                     tbody.appendChild(row);
                 });
-            });
-        }
-
-        // Zamknij pozycję
-        function closePosition(symbol, direction, amount, price) {
-            if (!confirm('Czy na pewno chcesz zamknąć tę pozycję?')) return;
-            fetch('/api/close_position', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ symbol, direction, amount, price })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    fetchOpenPositions();
-                    showToast('Pozycja została zamknięta!');
-                } else {
-                    alert('Błąd: ' + data.message);
-                }
             });
         }
     </script>

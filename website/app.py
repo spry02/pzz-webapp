@@ -9,6 +9,7 @@ import logging
 from functools import wraps
 import random
 import yfinance as yf
+from decimal import Decimal
 
 # Konfiguracja logowania, aby wykluczyć komunikaty debugowania PIL
 logging.basicConfig(level=logging.INFO)
@@ -316,11 +317,19 @@ def get_real_market_data():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    instruments = []
-    market_data = get_real_market_data()
-    return render_template('dashboard.html', 
-                          instruments=instruments,
-                          market_data=market_data)
+    cursor = db.connection.cursor(dictionary=True)
+    
+    # Get user saldo
+    cursor.execute("SELECT saldo FROM Uzytkownik WHERE user_id = %s", (session['user_id'],))
+    saldo = cursor.fetchone()['saldo']
+    
+    # No longer querying database instruments
+    # Only API instruments will be displayed
+    
+    cursor.close()
+    
+    # Pass an empty list as instruments from database
+    return render_template('dashboard.html', instruments=[], saldo=saldo)
 
 # Endpoint API dla pobierania danych rynkowych
 @app.route('/api/market_data')
@@ -386,8 +395,8 @@ def api_close_position():
     user_id = session['user_id']
     symbol = data['symbol']
     direction = data['direction']
-    amount = float(data['amount'])
-    price = float(data['price'])
+    amount = Decimal(str(data['amount']))
+    price = Decimal(str(data['price']))
 
     # Pobierz instrument_id
     cursor = db.connection.cursor()
@@ -409,9 +418,9 @@ def api_close_position():
     # Zaktualizuj saldo
     if transaction_id:
         if transaction_type == 'kupno':
-            new_saldo = saldo - amount * price
+            new_saldo = saldo - (amount * price)
         else:  # sprzedaż
-            new_saldo = saldo + amount * price
+            new_saldo = saldo + (amount * price)
         cursor.execute("UPDATE Uzytkownik SET saldo = %s WHERE user_id = %s", (new_saldo, user_id))
         db.connection.commit()
         cursor.close()
@@ -419,6 +428,36 @@ def api_close_position():
     else:
         cursor.close()
         return jsonify({'success': False, 'message': 'Błąd podczas zamykania pozycji'}), 500
+
+@app.route('/api/add_funds', methods=['POST'])
+@login_required
+def add_funds():
+    data = request.json
+    if not data or 'amount' not in data:
+        return jsonify({'success': False, 'message': 'Brak kwoty do dodania'}), 400
+    
+    try:
+        amount = Decimal(str(data['amount']))
+        if amount <= 0:
+            return jsonify({'success': False, 'message': 'Kwota musi być większa od zera'}), 400
+        
+        user_id = session['user_id']
+        cursor = db.connection.cursor()
+        
+        # Get current balance
+        cursor.execute("SELECT saldo FROM Uzytkownik WHERE user_id = %s", (user_id,))
+        current_saldo = cursor.fetchone()[0]
+        
+        # Update balance
+        new_saldo = current_saldo + amount
+        cursor.execute("UPDATE Uzytkownik SET saldo = %s WHERE user_id = %s", (new_saldo, user_id))
+        db.connection.commit()
+        
+        cursor.close()
+        return jsonify({'success': True, 'new_balance': float(new_saldo)})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.before_request
 def redirect_to_http():
@@ -575,8 +614,8 @@ def create_transaction():
         user_id = session['user_id']
         symbol = data['symbol']
         transaction_type = data['type']  # 'kupno' or 'sprzedaz'
-        amount = float(data['amount'])
-        price = float(data['price'])
+        amount = Decimal(str(data['amount']))
+        price = Decimal(str(data['price']))
 
         # Get instrument_id from symbol
         cursor = db.connection.cursor()
@@ -602,9 +641,9 @@ def create_transaction():
         # Zaktualizuj saldo
         if transaction_id:
             if transaction_type == 'kupno':
-                new_saldo = saldo - amount * price
+                new_saldo = saldo - (amount * price)
             else:  # sprzedaż
-                new_saldo = saldo + amount * price
+                new_saldo = saldo + (amount * price)
             cursor.execute("UPDATE Uzytkownik SET saldo = %s WHERE user_id = %s", (new_saldo, user_id))
             db.connection.commit()
             cursor.close()
