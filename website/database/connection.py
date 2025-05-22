@@ -1,3 +1,7 @@
+## @file database/connection.py
+## @brief Moduł obsługujący połączenie z bazą danych
+## @details Zawiera klasę DatabaseConnection do zarządzania operacjami bazodanowymi
+
 import mysql.connector
 from mysql.connector import Error
 import bcrypt
@@ -7,11 +11,15 @@ from decimal import Decimal
 
 load_dotenv()
 
+## @brief Klasa obsługująca połączenie z bazą danych i operacje na niej
 class DatabaseConnection:
+    ## @brief Inicjalizacja klasy i nawiązanie połączenia z bazą danych
     def __init__(self):
         self.connection = None
         self.connect()
 
+    ## @brief Nawiązuje połączenie z bazą danych
+    ## @return True w przypadku sukcesu, False w przypadku błędu
     def connect(self):
         try:
             self.connection = mysql.connector.connect(
@@ -26,12 +34,17 @@ class DatabaseConnection:
             print(f"Error connecting to database: {e}")
             return False
 
+    ## @brief Sprawdza i w razie potrzeby odnawia połączenie z bazą danych
     def ensure_connection(self):
         try:
             self.connection.ping(reconnect=True, attempts=3, delay=5)
         except Error:
             self.connect()
 
+    ## @brief Tworzy nowego użytkownika w bazie danych
+    ## @param email Adres email użytkownika
+    ## @param password Hasło użytkownika
+    ## @return True w przypadku sukcesu, False w przypadku błędu
     def create_user(self, email, password):
         cursor = None
         self.ensure_connection()
@@ -64,6 +77,10 @@ class DatabaseConnection:
             if cursor:
                 cursor.close()
 
+    ## @brief Weryfikuje poprawność danych logowania użytkownika
+    ## @param email Adres email użytkownika
+    ## @param password Hasło użytkownika
+    ## @return Dane użytkownika w przypadku sukcesu, None w przypadku błędu
     def verify_user(self, email, password):
         cursor = None
         self.ensure_connection()  # Add connection check
@@ -92,6 +109,10 @@ class DatabaseConnection:
             if cursor:
                 cursor.close()
 
+    ## @brief Aktualizuje adres email użytkownika
+    ## @param old_email Stary adres email
+    ## @param new_email Nowy adres email
+    ## @return True w przypadku sukcesu, None w przypadku błędu
     def update_user_email(self, old_email, new_email):
         self.ensure_connection()
         
@@ -106,6 +127,11 @@ class DatabaseConnection:
         except Error as e:
             print(f"Error updating user email: {e}")
 
+    ## @brief Aktualizuje hasło użytkownika
+    ## @param email Adres email użytkownika
+    ## @param old_password Stare hasło
+    ## @param new_password Nowe hasło
+    ## @return True w przypadku sukcesu, False w przypadku błędu
     def update_user_password(self, email, old_password, new_password):
         self.ensure_connection()
         
@@ -126,6 +152,9 @@ class DatabaseConnection:
         except Error as e:
             print(f"Error updating user password: {e}")
     
+    ## @brief Usuwa użytkownika z bazy danych
+    ## @param email Adres email użytkownika
+    ## @return True w przypadku sukcesu, False w przypadku błędu
     def delete_user(self, email):
         self.ensure_connection()
         
@@ -143,6 +172,8 @@ class DatabaseConnection:
         finally:
             cursor.close()
             
+    ## @brief Pobiera listę wszystkich instrumentów handlowych
+    ## @return Lista instrumentów handlowych
     def get_instruments(self):
         self.ensure_connection()
         
@@ -160,6 +191,13 @@ class DatabaseConnection:
         finally:
             cursor.close()
             
+    ## @brief Tworzy nową transakcję w bazie danych
+    ## @param user_id Identyfikator użytkownika
+    ## @param instrument_id Identyfikator instrumentu
+    ## @param transaction_type Typ transakcji (kupno/sprzedaz)
+    ## @param amount Ilość
+    ## @param price Cena jednostkowa
+    ## @return Identyfikator utworzonej transakcji lub None w przypadku błędu
     def create_transaction(self, user_id, instrument_id, transaction_type, amount, price):
         self.ensure_connection()
         
@@ -181,6 +219,8 @@ class DatabaseConnection:
         finally:
             cursor.close()
             
+    ## @brief Pobiera listę wszystkich użytkowników
+    ## @return Lista użytkowników
     def get_all_users(self):
         cursor = None
         self.ensure_connection()
@@ -205,6 +245,9 @@ class DatabaseConnection:
             if cursor:
                 cursor.close()
 
+    ## @brief Usuwa użytkownika z bazy danych na podstawie identyfikatora
+    ## @param user_id Identyfikator użytkownika
+    ## @return True w przypadku sukcesu, False w przypadku błędu
     def delete_user_by_id(self, user_id):
         cursor = None
         self.ensure_connection()
@@ -224,6 +267,10 @@ class DatabaseConnection:
             if cursor:
                 cursor.close()
 
+    ## @brief Aktualizuje rolę użytkownika
+    ## @param user_id Identyfikator użytkownika
+    ## @param role_id Identyfikator nowej roli
+    ## @return True w przypadku sukcesu, False w przypadku błędu
     def update_user_role(self, user_id, role_id):
         cursor = None
         self.ensure_connection()
@@ -243,6 +290,8 @@ class DatabaseConnection:
             if cursor:
                 cursor.close()
 
+    ## @brief Pobiera listę wszystkich transakcji
+    ## @return Lista transakcji
     def get_all_transactions(self):
         cursor = None
         self.ensure_connection()

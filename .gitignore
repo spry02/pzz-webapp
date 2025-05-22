@@ -173,3 +173,6 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 .env
+Doxyfile
+website/mainpage.dox
+website/modules.dox
